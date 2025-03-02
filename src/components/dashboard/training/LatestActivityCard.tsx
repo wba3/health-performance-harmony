@@ -2,11 +2,9 @@
 import React from "react";
 import { ActivitySquare, Timer, Route, Heart } from "lucide-react";
 import { formatDistanceToNow } from "date-fns";
-import { Link } from "react-router-dom";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import MetricDisplay from "@/components/ui/MetricDisplay";
 import { TrainingData } from "@/services/database";
-import { Button } from "@/components/ui/button";
 
 interface LatestActivityCardProps {
   latestActivity: TrainingData | null;
@@ -55,14 +53,6 @@ const LatestActivityCard: React.FC<LatestActivityCardProps> = ({
                 className="col-span-2"
               />
             )}
-          </div>
-          
-          <div className="pt-2">
-            <Link to={`/training/${latestActivity.id}`}>
-              <Button variant="outline" className="w-full">
-                View Details
-              </Button>
-            </Link>
           </div>
         </div>
       ) : (
