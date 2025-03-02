@@ -43,54 +43,56 @@ const App = () => {
             <Toaster />
             <Sonner />
             <BrowserRouter>
-              <Navbar />
-              <AnimatePresence mode="wait">
-                <Routes>
-                  <Route path="/" element={<LandingPage />} />
-                  <Route path="/login" element={<Login />} />
-                  <Route
-                    path="/dashboard"
-                    element={
-                      <ProtectedRoute>
-                        <Dashboard />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/sleep"
-                    element={
-                      <ProtectedRoute>
-                        <Sleep />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/training"
-                    element={
-                      <ProtectedRoute>
-                        <Training />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/ai-coach"
-                    element={
-                      <ProtectedRoute>
-                        <AICoach />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route
-                    path="/settings"
-                    element={
-                      <ProtectedRoute>
-                        <Settings />
-                      </ProtectedRoute>
-                    }
-                  />
-                  <Route path="*" element={<NotFound />} />
-                </Routes>
-              </AnimatePresence>
+              <Routes>
+                <Route path="/" element={<LandingPage />} />
+                <Route path="/login" element={<Login />} />
+                <Route
+                  path="/dashboard"
+                  element={
+                    <ProtectedRoute>
+                      <Navbar />
+                      <Dashboard />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/sleep"
+                  element={
+                    <ProtectedRoute>
+                      <Navbar />
+                      <Sleep />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/training"
+                  element={
+                    <ProtectedRoute>
+                      <Navbar />
+                      <Training />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/ai-coach"
+                  element={
+                    <ProtectedRoute>
+                      <Navbar />
+                      <AICoach />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route
+                  path="/settings"
+                  element={
+                    <ProtectedRoute>
+                      <Navbar />
+                      <Settings />
+                    </ProtectedRoute>
+                  }
+                />
+                <Route path="*" element={<NotFound />} />
+              </Routes>
             </BrowserRouter>
           </TooltipProvider>
         </QueryClientProvider>
