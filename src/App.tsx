@@ -1,6 +1,6 @@
 
 import React, { useEffect } from 'react';
-import { Routes, Route, useNavigate } from 'react-router-dom';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { Toaster } from 'sonner';
 import { useToast } from "@/components/ui/use-toast";
 
@@ -24,16 +24,18 @@ function App() {
   const { toast } = useToast();
   const { isLoggedIn } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   useEffect(() => {
-    if (!isLoggedIn) {
+    // Only redirect if not on the home page and not logged in
+    if (!isLoggedIn && location.pathname !== '/' && location.pathname !== '/index') {
       navigate('/');
       toast({
         title: "Please login",
         description: "You must be logged in to access this page.",
       });
     }
-  }, [isLoggedIn, navigate, toast]);
+  }, [isLoggedIn, navigate, toast, location.pathname]);
 
   return (
     <div className="app">
@@ -41,12 +43,24 @@ function App() {
       
       <Routes>
         <Route path="/" element={<Index />} />
-        <Route path="/dashboard" element={<Dashboard />} />
-        <Route path="/sleep" element={<Sleep />} />
-        <Route path="/training" element={<Training />} />
-        <Route path="/training/:id" element={<TrainingDetailPage />} />
-        <Route path="/ai-coach" element={<AICoach />} />
-        <Route path="/settings" element={<Settings />} />
+        <Route path="/dashboard" element={
+          isLoggedIn ? <Dashboard /> : <Index />
+        } />
+        <Route path="/sleep" element={
+          isLoggedIn ? <Sleep /> : <Index />
+        } />
+        <Route path="/training" element={
+          isLoggedIn ? <Training /> : <Index />
+        } />
+        <Route path="/training/:id" element={
+          isLoggedIn ? <TrainingDetailPage /> : <Index />
+        } />
+        <Route path="/ai-coach" element={
+          isLoggedIn ? <AICoach /> : <Index />
+        } />
+        <Route path="/settings" element={
+          isLoggedIn ? <Settings /> : <Index />
+        } />
         <Route path="*" element={<NotFound />} />
       </Routes>
       
