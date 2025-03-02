@@ -17,7 +17,7 @@ import { toast } from "@/components/ui/use-toast";
 const Training: React.FC = () => {
   // Fetch training data with React Query
   const { 
-    data: trainingData, 
+    data: queryResult, 
     isLoading, 
     isError, 
     error, 
@@ -26,24 +26,27 @@ const Training: React.FC = () => {
     queryKey: ['training-data'],
     queryFn: async () => {
       // Fetch the last 14 days of training data
-      const data = await getTrainingData(14);
-      return data;
+      const result = await getTrainingData(14);
+      return result;
     }
   });
+
+  // Extract the actual training data array from the query result
+  const trainingData = queryResult?.data || [];
 
   // Check if Strava is connected
   const stravaConnected = isStravaConnected();
 
   // Format latest activity data
   const getLatestActivity = () => {
-    if (!trainingData || trainingData.length === 0) return null;
+    if (trainingData.length === 0) return null;
     return trainingData[0];
   };
 
   const latestActivity = getLatestActivity();
 
   // Handle empty state (no Strava connection)
-  if (!isLoading && !isError && !stravaConnected && (!trainingData || trainingData.length === 0)) {
+  if (!isLoading && !isError && !stravaConnected && trainingData.length === 0) {
     return (
       <PageTransition>
         <div className="container mx-auto px-4 pt-24 pb-16">
