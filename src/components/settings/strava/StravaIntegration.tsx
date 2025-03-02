@@ -9,7 +9,7 @@ import {
   disconnectStrava, 
   importStravaActivities, 
   testStravaConnection 
-} from "@/services/stravaAPI";
+} from "@/services/strava";
 
 // Import the refactored components
 import StravaHeader from "./StravaHeader";
