@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { initiateOuraAuth, handleOuraCallback, isOuraConnected, disconnectOura, importOuraSleepData } from "@/services/ouraAPI";
+import { initiateStravaAuth, handleStravaCallback, isStravaConnected, disconnectStrava, importStravaActivities } from "@/services/stravaAPI";
 
 const Settings: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -20,68 +21,145 @@ const Settings: React.FC = () => {
   const [ouraClientSecret, setOuraClientSecret] = useState<string>('');
   const [ouraAutoSync, setOuraAutoSync] = useState<boolean>(false);
   const [processingOuraAuth, setProcessingOuraAuth] = useState<boolean>(false);
-  const [importingData, setImportingData] = useState<boolean>(false);
+  const [importingOuraData, setImportingOuraData] = useState<boolean>(false);
 
   // Strava connection state
+  const [stravaConnected, setStravaConnected] = useState<boolean>(false);
   const [stravaClientId, setStravaClientId] = useState<string>('');
   const [stravaClientSecret, setStravaClientSecret] = useState<string>('');
   const [stravaAutoImport, setStravaAutoImport] = useState<boolean>(false);
   const [stravaPowerData, setStravaPowerData] = useState<boolean>(false);
+  const [processingStravaAuth, setProcessingStravaAuth] = useState<boolean>(false);
+  const [importingStravaData, setImportingStravaData] = useState<boolean>(false);
 
   // OpenAI API state
   const [openAIKey, setOpenAIKey] = useState<string>('');
   const [openAIModel, setOpenAIModel] = useState<string>('gpt-4o');
   const [openAIDailyInsights, setOpenAIDailyInsights] = useState<boolean>(false);
 
-  // Check if we're returning from Oura OAuth flow
+  // Check connections on mount
   useEffect(() => {
-    const checkOuraConnection = () => {
-      const connected = isOuraConnected();
-      setOuraConnected(connected);
+    const checkConnections = () => {
+      setOuraConnected(isOuraConnected());
+      setStravaConnected(isStravaConnected());
     };
 
-    checkOuraConnection();
+    checkConnections();
 
+    // Load saved client IDs
+    const savedOuraClientId = localStorage.getItem('ouraClientId');
+    const savedOuraClientSecret = localStorage.getItem('ouraClientSecret');
+    const savedStravaClientId = localStorage.getItem('stravaClientId');
+    const savedStravaClientSecret = localStorage.getItem('stravaClientSecret');
+    
+    if (savedOuraClientId) {
+      setOuraClientId(savedOuraClientId);
+    }
+    
+    if (savedOuraClientSecret) {
+      setOuraClientSecret(savedOuraClientSecret);
+    }
+    
+    if (savedStravaClientId) {
+      setStravaClientId(savedStravaClientId);
+    }
+    
+    if (savedStravaClientSecret) {
+      setStravaClientSecret(savedStravaClientSecret);
+    }
+  }, []);
+
+  // Handle OAuth callbacks
+  useEffect(() => {
     // Process OAuth callback if code is present
     const code = searchParams.get('code');
     const state = searchParams.get('state');
     
-    if (code && state && ouraClientId && ouraClientSecret) {
-      setProcessingOuraAuth(true);
-      
-      handleOuraCallback(code, state, ouraClientId, ouraClientSecret)
-        .then(success => {
-          if (success) {
-            setOuraConnected(true);
-            toast({
-              title: "Connected to Oura",
-              description: "Your Oura Ring account has been successfully connected.",
-              variant: "default",
-            });
-          } else {
-            toast({
-              title: "Connection Failed",
-              description: "Could not connect to Oura. Please try again.",
-              variant: "destructive",
-            });
-          }
-        })
-        .catch(err => {
-          console.error("Error handling OAuth callback:", err);
+    if (code && state) {
+      // Check if it's a Strava callback (Strava uses state parameter)
+      if (localStorage.getItem('strava_auth_state') === state) {
+        handleStravaOAuthCallback(code, state);
+      } 
+      // Otherwise assume it's an Oura callback
+      else if (ouraClientId && ouraClientSecret) {
+        handleOuraOAuthCallback(code, state);
+      }
+    }
+  }, [searchParams]);
+
+  // Handle Oura OAuth callback
+  const handleOuraOAuthCallback = (code: string, state: string) => {
+    setProcessingOuraAuth(true);
+    
+    handleOuraCallback(code, state, ouraClientId, ouraClientSecret)
+      .then(success => {
+        if (success) {
+          setOuraConnected(true);
           toast({
-            title: "Connection Error",
-            description: err.message || "An error occurred during the connection process.",
+            title: "Connected to Oura",
+            description: "Your Oura Ring account has been successfully connected.",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Connection Failed",
+            description: "Could not connect to Oura. Please try again.",
             variant: "destructive",
           });
-        })
-        .finally(() => {
-          setProcessingOuraAuth(false);
-          
-          // Clear URL parameters after processing
-          window.history.replaceState({}, document.title, window.location.pathname);
+        }
+      })
+      .catch(err => {
+        console.error("Error handling Oura OAuth callback:", err);
+        toast({
+          title: "Connection Error",
+          description: err.message || "An error occurred during the connection process.",
+          variant: "destructive",
         });
-    }
-  }, [searchParams, toast, ouraClientId, ouraClientSecret]);
+      })
+      .finally(() => {
+        setProcessingOuraAuth(false);
+        
+        // Clear URL parameters after processing
+        window.history.replaceState({}, document.title, window.location.pathname);
+      });
+  };
+
+  // Handle Strava OAuth callback
+  const handleStravaOAuthCallback = (code: string, state: string) => {
+    setProcessingStravaAuth(true);
+    
+    handleStravaCallback(code, state, stravaClientId, stravaClientSecret)
+      .then(success => {
+        if (success) {
+          setStravaConnected(true);
+          toast({
+            title: "Connected to Strava",
+            description: "Your Strava account has been successfully connected.",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Connection Failed",
+            description: "Could not connect to Strava. Please try again.",
+            variant: "destructive",
+          });
+        }
+      })
+      .catch(err => {
+        console.error("Error handling Strava OAuth callback:", err);
+        toast({
+          title: "Connection Error",
+          description: err.message || "An error occurred during the connection process.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
+        setProcessingStravaAuth(false);
+        
+        // Clear URL parameters after processing
+        window.history.replaceState({}, document.title, window.location.pathname);
+      });
+  };
 
   // Connect to Oura
   const handleOuraConnect = () => {
@@ -103,6 +181,26 @@ const Settings: React.FC = () => {
     initiateOuraAuth(ouraClientId);
   };
 
+  // Connect to Strava
+  const handleStravaConnect = () => {
+    if (!stravaClientId) {
+      toast({
+        title: "Client ID Required",
+        description: "Please enter your Strava API Client ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Save client credentials to use after OAuth redirect
+    localStorage.setItem('stravaClientId', stravaClientId);
+    if (stravaClientSecret) {
+      localStorage.setItem('stravaClientSecret', stravaClientSecret);
+    }
+    
+    initiateStravaAuth(stravaClientId);
+  };
+
   // Disconnect from Oura
   const handleOuraDisconnect = () => {
     disconnectOura();
@@ -110,6 +208,17 @@ const Settings: React.FC = () => {
     toast({
       title: "Disconnected",
       description: "Your Oura Ring account has been disconnected.",
+      variant: "default",
+    });
+  };
+
+  // Disconnect from Strava
+  const handleStravaDisconnect = () => {
+    disconnectStrava();
+    setStravaConnected(false);
+    toast({
+      title: "Disconnected",
+      description: "Your Strava account has been disconnected.",
       variant: "default",
     });
   };
@@ -125,7 +234,7 @@ const Settings: React.FC = () => {
       return;
     }
     
-    setImportingData(true);
+    setImportingOuraData(true);
     
     try {
       const importCount = await importOuraSleepData(ouraClientId, ouraClientSecret, 30);
@@ -143,23 +252,42 @@ const Settings: React.FC = () => {
         variant: "destructive",
       });
     } finally {
-      setImportingData(false);
+      setImportingOuraData(false);
     }
   };
 
-  // Load saved client IDs on mount
-  useEffect(() => {
-    const savedOuraClientId = localStorage.getItem('ouraClientId');
-    const savedOuraClientSecret = localStorage.getItem('ouraClientSecret');
-    
-    if (savedOuraClientId) {
-      setOuraClientId(savedOuraClientId);
+  // Import Strava activities
+  const handleImportActivities = async () => {
+    if (!stravaConnected || !stravaClientId || !stravaClientSecret) {
+      toast({
+        title: "Not Connected",
+        description: "Please connect to Strava before importing data.",
+        variant: "destructive",
+      });
+      return;
     }
     
-    if (savedOuraClientSecret) {
-      setOuraClientSecret(savedOuraClientSecret);
+    setImportingStravaData(true);
+    
+    try {
+      const importCount = await importStravaActivities(stravaClientId, stravaClientSecret, 30);
+      
+      toast({
+        title: "Activities Imported",
+        description: `Successfully imported ${importCount} activities.`,
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Import error:", error);
+      toast({
+        title: "Import Failed",
+        description: "Could not import activities. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setImportingStravaData(false);
     }
-  }, []);
+  };
 
   return (
     <PageTransition>
@@ -210,6 +338,7 @@ const Settings: React.FC = () => {
               </div>
               
               <div className="space-y-8">
+                {/* Oura Ring Connection */}
                 <div className="rounded-lg border shadow-sm">
                   <div className="flex items-center justify-between p-6">
                     <div className="flex items-center space-x-4">
@@ -234,9 +363,9 @@ const Settings: React.FC = () => {
                         <Button 
                           variant="outline" 
                           onClick={handleImportSleepData}
-                          disabled={importingData}
+                          disabled={importingOuraData}
                         >
-                          {importingData ? (
+                          {importingOuraData ? (
                             <>
                               <Loader2 className="w-4 h-4 mr-2 animate-spin" />
                               Importing...
@@ -317,6 +446,7 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
                 
+                {/* Strava Connection */}
                 <div className="rounded-lg border shadow-sm">
                   <div className="flex items-center justify-between p-6">
                     <div className="flex items-center space-x-4">
@@ -327,13 +457,62 @@ const Settings: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="font-medium">Strava</h3>
-                        <p className="text-sm text-muted-foreground">Training and workout data</p>
+                        <div className="flex items-center">
+                          <p className="text-sm text-muted-foreground mr-2">Training and workout data</p>
+                          {stravaConnected && (
+                            <span className="inline-flex items-center text-xs text-green-600">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Connected
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <Button variant="outline" className="flex items-center gap-2">
-                      <span>Connect</span>
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
+                    {stravaConnected ? (
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={handleImportActivities}
+                          disabled={importingStravaData}
+                        >
+                          {importingStravaData ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Importing...
+                            </>
+                          ) : (
+                            "Import Activities"
+                          )}
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="text-red-500 hover:text-red-600"
+                          onClick={handleStravaDisconnect}
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Disconnect
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        className="flex items-center gap-2"
+                        onClick={handleStravaConnect}
+                        disabled={processingStravaAuth}
+                      >
+                        {processingStravaAuth ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Connecting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Connect</span>
+                            <ExternalLink className="w-4 h-4" />
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                   <Separator />
                   <div className="p-6">
@@ -345,7 +524,10 @@ const Settings: React.FC = () => {
                             id="strava-client-id" 
                             placeholder="Enter client ID"
                             value={stravaClientId}
-                            onChange={(e) => setStravaClientId(e.target.value)}
+                            onChange={(e) => {
+                              setStravaClientId(e.target.value);
+                              localStorage.setItem('stravaClientId', e.target.value);
+                            }}
                           />
                         </div>
                         <div className="space-y-2">
@@ -355,7 +537,10 @@ const Settings: React.FC = () => {
                             type="password" 
                             placeholder="••••••••••••••••"
                             value={stravaClientSecret}
-                            onChange={(e) => setStravaClientSecret(e.target.value)}
+                            onChange={(e) => {
+                              setStravaClientSecret(e.target.value);
+                              localStorage.setItem('stravaClientSecret', e.target.value);
+                            }}
                           />
                         </div>
                       </div>
@@ -379,6 +564,7 @@ const Settings: React.FC = () => {
                   </div>
                 </div>
                 
+                {/* OpenAI Connection */}
                 <div className="rounded-lg border shadow-sm">
                   <div className="flex items-center justify-between p-6">
                     <div className="flex items-center space-x-4">
