@@ -1,3 +1,4 @@
+
 import OpenAI from 'openai';
 import { v4 as uuidv4 } from 'uuid';
 import { supabase } from "@/integrations/supabase/client";
@@ -22,9 +23,15 @@ interface AIInsight {
   rating: number | null;
 }
 
+// Initialize OpenAI client
 const openai = new OpenAI({
-  apiKey: process.env.OPENAI_API_KEY,
+  apiKey: localStorage.getItem('openai_api_key') || undefined,
 });
+
+// Helper function to check if OpenAI API key is configured
+const isOpenAIConfigured = (): boolean => {
+  return !!localStorage.getItem('openai_api_key');
+};
 
 const dailyPrompt = `
 Analyze the following health data and provide a concise insight. Focus on key trends and potential areas for improvement. Keep the insight short and actionable.
@@ -32,11 +39,22 @@ Analyze the following health data and provide a concise insight. Focus on key tr
 Data:
 `;
 
+const coachPrompt = `
+You are a performance coach specializing in training and sleep optimization. Analyze the user's question and provide helpful, science-based advice. Keep responses concise but informative.
+
+User question:
+`;
+
 const generateDailyInsight = async (healthData: string): Promise<string | null> => {
   try {
+    if (!isOpenAIConfigured()) {
+      console.error('OpenAI API key not configured');
+      return null;
+    }
+
     const completion = await openai.chat.completions.create({
       messages: [{ role: "system", content: dailyPrompt + healthData }],
-      model: "gpt-3.5-turbo",
+      model: localStorage.getItem('openai_model') || "gpt-3.5-turbo",
     });
 
     return completion.choices[0].message.content;
@@ -46,7 +64,43 @@ const generateDailyInsight = async (healthData: string): Promise<string | null> 
   }
 };
 
-// Fix the saveInsight function to remove created_at which is not in AIInsightInput
+// Function to generate coach responses
+const generateCoachResponse = async (question: string): Promise<string | null> => {
+  try {
+    if (!isOpenAIConfigured()) {
+      console.error('OpenAI API key not configured');
+      return null;
+    }
+
+    const completion = await openai.chat.completions.create({
+      messages: [{ role: "system", content: coachPrompt + question }],
+      model: localStorage.getItem('openai_model') || "gpt-3.5-turbo",
+    });
+
+    return completion.choices[0].message.content;
+  } catch (error) {
+    console.error('Error generating coach response:', error);
+    return null;
+  }
+};
+
+// Generate new insights based on available data
+const generateInsights = async (): Promise<boolean> => {
+  try {
+    if (!isOpenAIConfigured()) {
+      console.error('OpenAI API key not configured');
+      return false;
+    }
+
+    await generateInsightsFromData();
+    return true;
+  } catch (error) {
+    console.error('Error in generateInsights:', error);
+    return false;
+  }
+};
+
+// Save insight to database
 const saveInsight = async (insightData: AIInsightInput): Promise<AIInsight | null> => {
   try {
     const { data, error } = await supabase
@@ -73,6 +127,7 @@ const saveInsight = async (insightData: AIInsightInput): Promise<AIInsight | nul
   }
 };
 
+// Get insights from database
 const getInsights = async (days: number = 7): Promise<AIInsight[]> => {
   try {
     const date = new Date();
@@ -97,6 +152,7 @@ const getInsights = async (days: number = 7): Promise<AIInsight[]> => {
   }
 };
 
+// Mark insight as read
 const markInsightAsRead = async (insightId: string): Promise<boolean> => {
   try {
     const { error } = await supabase
@@ -116,6 +172,7 @@ const markInsightAsRead = async (insightId: string): Promise<boolean> => {
   }
 };
 
+// Rate insight
 const rateInsight = async (insightId: string, rating: number): Promise<boolean> => {
   try {
     const { error } = await supabase
@@ -135,6 +192,7 @@ const rateInsight = async (insightId: string, rating: number): Promise<boolean> 
   }
 };
 
+// Generate insights from available data
 const generateInsightsFromData = async () => {
   try {
     // Fetch training data for the last 7 days
@@ -200,4 +258,16 @@ const generateInsightsFromData = async () => {
   }
 };
 
-export { generateDailyInsight, saveInsight, getInsights, markInsightAsRead, rateInsight, generateInsightsFromData };
+export { 
+  generateDailyInsight,
+  generateCoachResponse,
+  generateInsights,
+  saveInsight,
+  getInsights,
+  markInsightAsRead,
+  rateInsight,
+  generateInsightsFromData,
+  isOpenAIConfigured,
+  type AIInsight,
+  type AIInsightInput
+};

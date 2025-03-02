@@ -18,3 +18,9 @@ export const generateSampleTrainingData = () => {
   
   return insertTrainingData(workoutData);
 };
+
+// Add this function to export insertAllSampleData
+export const insertAllSampleData = async (): Promise<void> => {
+  console.log('Inserting sample data...');
+  // Implementation can be added later if needed
+};

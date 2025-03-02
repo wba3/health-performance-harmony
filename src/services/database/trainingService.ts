@@ -1,4 +1,3 @@
-
 import { supabase } from "@/integrations/supabase/client";
 
 // Define the WorkoutData interface - correctly typed for inserts
@@ -109,7 +108,29 @@ export const saveWorkout = async (workoutData: WorkoutData): Promise<TrainingDat
 /**
  * Insert training data (alias for saveWorkout for compatibility)
  */
-export const insertTrainingData = saveWorkout;
+export const insertTrainingData = async (data: Partial<TrainingData>): Promise<boolean> => {
+  try {
+    // Ensure required fields are present
+    if (!data.activity_type || !data.date) {
+      console.error('Missing required fields for training data insertion');
+      return false;
+    }
+
+    const { error } = await supabase
+      .from('training_data')
+      .insert(data as any);
+
+    if (error) {
+      console.error('Error inserting training data:', error);
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Error in insertTrainingData:', error);
+    return false;
+  }
+};
 
 /**
  * Retrieves training data for the specified number of days
