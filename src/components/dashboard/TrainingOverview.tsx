@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import { 
   Calendar, 
@@ -23,17 +22,14 @@ const TrainingOverview = () => {
   const [trainingData, setTrainingData] = useState<any[]>([]);
   const [stravaConnected, setStravaConnected] = useState<boolean>(false);
   
-  // Load training data
   useEffect(() => {
     const fetchTrainingData = async () => {
       setIsLoading(true);
       setError(null);
       
       try {
-        // Check Strava connection status
         setStravaConnected(isStravaConnected());
         
-        // Get last 7 days of training data
         const { data, error } = await supabase
           .from("training_data")
           .select("*")
@@ -54,7 +50,6 @@ const TrainingOverview = () => {
     fetchTrainingData();
   }, []);
   
-  // Format data for chart
   const chartData = trainingData
     .slice()
     .reverse()
@@ -65,17 +60,14 @@ const TrainingOverview = () => {
       duration: activity.duration || 0,
     }));
   
-  // Define series configuration for the chart
   const seriesConfig = [
     { key: "calories", color: "#FC4C02", unit: "kcal", label: "Calories" },
     { key: "distance", color: "#2563EB", unit: "km", label: "Distance" },
     { key: "duration", color: "#10B981", unit: "min", label: "Duration" }
   ];
   
-  // Get latest activity
   const latestActivity = trainingData[0] || null;
 
-  // No connection yet
   if (!isLoading && !error && !stravaConnected && trainingData.length === 0) {
     return (
       <EmptyStateCard 
@@ -86,7 +78,6 @@ const TrainingOverview = () => {
     );
   }
   
-  // Show error state
   if (!isLoading && error) {
     return (
       <ErrorStateCard 
@@ -98,7 +89,6 @@ const TrainingOverview = () => {
     );
   }
   
-  // Show connected but no data
   if (!isLoading && !error && stravaConnected && trainingData.length === 0) {
     return (
       <EmptyStateCard 
@@ -134,11 +124,20 @@ const TrainingOverview = () => {
         <CardContent className="p-6">
           {latestActivity && (
             <>
-              <div className="flex items-center mb-4">
-                <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Latest Activity: {new Date(latestActivity.date).toLocaleDateString()}
-                </span>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Latest Activity: {new Date(latestActivity.date).toLocaleDateString()}
+                  </span>
+                </div>
+                {latestActivity && (
+                  <Link to={`/training/${latestActivity.id}`}>
+                    <Button variant="ghost" size="sm" className="text-xs">
+                      View Details
+                    </Button>
+                  </Link>
+                )}
               </div>
             
               <MetricsSection activity={latestActivity} />
