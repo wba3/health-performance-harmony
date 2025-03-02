@@ -1,6 +1,11 @@
 
 import { supabase } from "@/integrations/supabase/client";
-import { SupabaseQueryResult } from "@/integrations/supabase/types";
+
+// Define the SupabaseQueryResult type since it's not exported from types.ts
+export interface SupabaseQueryResult<T> {
+  data: T | null;
+  error: any;
+}
 
 // Define the TrainingData and WorkoutData types
 export interface TrainingData {
