@@ -136,7 +136,13 @@ const TrainingOverview = () => {
             </>
           )}
           
-          <ActivityChart data={chartData} />
+          <ActivityChart 
+            data={chartData} 
+            dataKey="calories" 
+            title="Weekly Calories Burned" 
+            color="#FC4C02"
+            unit="kcal"
+          />
         </CardContent>
       )}
     </Card>
