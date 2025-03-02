@@ -17,6 +17,11 @@ export interface TrainingData {
   external_id?: string;
 }
 
+// Define a simpler type for checking workout existence
+type WorkoutExistenceCheck = {
+  id: string;
+};
+
 export const getTrainingData = async (limit: number = 7): Promise<TrainingData[]> => {
   try {
     const { data, error } = await supabase
