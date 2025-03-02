@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import PageTransition from "@/components/layout/PageTransition";
 import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2, Info, Link } from "lucide-react";
@@ -354,7 +353,7 @@ const Settings: React.FC = () => {
   };
 
   // Extract domain for Strava settings
-  const appDomain = window.location.origin.replace(/^https?:\/\//, '');
+  const appDomain = window.location.origin.replace(/^https?:\/\//, '').split('/')[0];
   const redirectUri = `${window.location.origin}/settings`;
 
   return (
@@ -641,13 +640,28 @@ const Settings: React.FC = () => {
                                 </div>
                               </li>
                               <li>
-                                <div className="font-medium">Authorization Callback Domain:</div>
+                                <div className="font-medium">Redirect URI:</div>
                                 <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all">{redirectUri}</code>
                                 <div className="italic text-xs mt-1">
                                   ⚠️ Include the <strong>complete</strong> URL with path
                                 </div>
                               </li>
                             </ol>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
+                        <div className="flex items-start">
+                          <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+                          <div>
+                            <h4 className="font-medium text-blue-800">Troubleshooting Connection</h4>
+                            <ul className="text-sm text-blue-700 mt-2 space-y-1 list-disc pl-5">
+                              <li>Try using an incognito/private browsing window</li>
+                              <li>Clear your browser's cache and cookies</li>
+                              <li>Make sure you're signed in with the correct Google account linked to Strava</li>
+                              <li>Double check your Strava API settings match exactly what's shown above</li>
+                            </ul>
                           </div>
                         </div>
                       </div>
