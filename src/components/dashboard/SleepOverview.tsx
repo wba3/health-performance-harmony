@@ -1,12 +1,13 @@
 
 import React, { useEffect, useState } from "react";
 import DashboardCard from "./DashboardCard";
-import { BedDouble, ArrowRight, Moon, Activity, Heart } from "lucide-react";
+import { BedDouble, ArrowRight, Moon, Activity, Heart, AlertCircle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import MetricDisplay from "../ui/MetricDisplay";
 import { getLatestSleepData, SleepData } from "@/services/database";
 import { formatMinutesToHoursAndMinutes } from "@/utils/formatters";
+import { isOuraConnected } from "@/services/ouraAPI";
 
 interface SleepOverviewProps {
   isLoading?: boolean;
@@ -16,8 +17,12 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
   const [sleepData, setSleepData] = useState<SleepData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(initialLoading || true);
   const [error, setError] = useState<string | null>(null);
+  const [ouraConnected, setOuraConnected] = useState<boolean>(false);
 
   useEffect(() => {
+    // Check if Oura is connected
+    setOuraConnected(isOuraConnected());
+    
     const fetchSleepData = async () => {
       try {
         const data = await getLatestSleepData();
@@ -65,6 +70,23 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
       {error ? (
         <div className="p-4 text-red-500 bg-red-50 rounded-md">
           {error}
+        </div>
+      ) : !sleepData && !isLoading ? (
+        <div className="p-4 bg-amber-50 text-amber-800 rounded-md flex items-start gap-2">
+          <AlertCircle className="w-5 h-5 mt-0.5 flex-shrink-0" />
+          <div>
+            <p className="font-medium">No sleep data available</p>
+            <p className="text-sm mt-1">
+              {ouraConnected ? (
+                "Import your Oura Ring sleep data from the Settings page."
+              ) : (
+                "Connect your Oura Ring in Settings to import sleep data."
+              )}
+            </p>
+            <Button variant="outline" size="sm" className="mt-2" asChild>
+              <Link to="/settings">Go to Settings</Link>
+            </Button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-2 md:grid-cols-3 gap-4">

@@ -1,14 +1,166 @@
-
-import React from "react";
+import React, { useState, useEffect } from "react";
 import PageTransition from "@/components/layout/PageTransition";
-import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key } from "lucide-react";
+import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
+import { useSearchParams } from "react-router-dom";
+import { initiateOuraAuth, handleOuraCallback, isOuraConnected, disconnectOura, importOuraSleepData } from "@/services/ouraAPI";
 
 const Settings: React.FC = () => {
+  const [searchParams] = useSearchParams();
+  const { toast } = useToast();
+  
+  // Oura connection state
+  const [ouraConnected, setOuraConnected] = useState<boolean>(false);
+  const [ouraClientId, setOuraClientId] = useState<string>('');
+  const [ouraClientSecret, setOuraClientSecret] = useState<string>('');
+  const [ouraAutoSync, setOuraAutoSync] = useState<boolean>(false);
+  const [processingOuraAuth, setProcessingOuraAuth] = useState<boolean>(false);
+  const [importingData, setImportingData] = useState<boolean>(false);
+
+  // Strava connection state
+  const [stravaClientId, setStravaClientId] = useState<string>('');
+  const [stravaClientSecret, setStravaClientSecret] = useState<string>('');
+  const [stravaAutoImport, setStravaAutoImport] = useState<boolean>(false);
+  const [stravaPowerData, setStravaPowerData] = useState<boolean>(false);
+
+  // OpenAI API state
+  const [openAIKey, setOpenAIKey] = useState<string>('');
+  const [openAIModel, setOpenAIModel] = useState<string>('gpt-4o');
+  const [openAIDailyInsights, setOpenAIDailyInsights] = useState<boolean>(false);
+
+  // Check if we're returning from Oura OAuth flow
+  useEffect(() => {
+    const checkOuraConnection = () => {
+      const connected = isOuraConnected();
+      setOuraConnected(connected);
+    };
+
+    checkOuraConnection();
+
+    // Process OAuth callback if code is present
+    const code = searchParams.get('code');
+    const state = searchParams.get('state');
+    
+    if (code && state && ouraClientId && ouraClientSecret) {
+      setProcessingOuraAuth(true);
+      
+      handleOuraCallback(code, state, ouraClientId, ouraClientSecret)
+        .then(success => {
+          if (success) {
+            setOuraConnected(true);
+            toast({
+              title: "Connected to Oura",
+              description: "Your Oura Ring account has been successfully connected.",
+              variant: "default",
+            });
+          } else {
+            toast({
+              title: "Connection Failed",
+              description: "Could not connect to Oura. Please try again.",
+              variant: "destructive",
+            });
+          }
+        })
+        .catch(err => {
+          console.error("Error handling OAuth callback:", err);
+          toast({
+            title: "Connection Error",
+            description: err.message || "An error occurred during the connection process.",
+            variant: "destructive",
+          });
+        })
+        .finally(() => {
+          setProcessingOuraAuth(false);
+          
+          // Clear URL parameters after processing
+          window.history.replaceState({}, document.title, window.location.pathname);
+        });
+    }
+  }, [searchParams, toast, ouraClientId, ouraClientSecret]);
+
+  // Connect to Oura
+  const handleOuraConnect = () => {
+    if (!ouraClientId) {
+      toast({
+        title: "Client ID Required",
+        description: "Please enter your Oura API Client ID.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Save client credentials to use after OAuth redirect
+    localStorage.setItem('ouraClientId', ouraClientId);
+    if (ouraClientSecret) {
+      localStorage.setItem('ouraClientSecret', ouraClientSecret);
+    }
+    
+    initiateOuraAuth(ouraClientId);
+  };
+
+  // Disconnect from Oura
+  const handleOuraDisconnect = () => {
+    disconnectOura();
+    setOuraConnected(false);
+    toast({
+      title: "Disconnected",
+      description: "Your Oura Ring account has been disconnected.",
+      variant: "default",
+    });
+  };
+
+  // Import Oura sleep data
+  const handleImportSleepData = async () => {
+    if (!ouraConnected || !ouraClientId || !ouraClientSecret) {
+      toast({
+        title: "Not Connected",
+        description: "Please connect to Oura before importing data.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setImportingData(true);
+    
+    try {
+      const importCount = await importOuraSleepData(ouraClientId, ouraClientSecret, 30);
+      
+      toast({
+        title: "Data Imported",
+        description: `Successfully imported ${importCount} days of sleep data.`,
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Import error:", error);
+      toast({
+        title: "Import Failed",
+        description: "Could not import sleep data. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setImportingData(false);
+    }
+  };
+
+  // Load saved client IDs on mount
+  useEffect(() => {
+    const savedOuraClientId = localStorage.getItem('ouraClientId');
+    const savedOuraClientSecret = localStorage.getItem('ouraClientSecret');
+    
+    if (savedOuraClientId) {
+      setOuraClientId(savedOuraClientId);
+    }
+    
+    if (savedOuraClientSecret) {
+      setOuraClientSecret(savedOuraClientSecret);
+    }
+  }, []);
+
   return (
     <PageTransition>
       <div className="container mx-auto px-4 pt-24 pb-16">
@@ -66,29 +218,99 @@ const Settings: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="font-medium">Oura Ring</h3>
-                        <p className="text-sm text-muted-foreground">Sleep and recovery data</p>
+                        <div className="flex items-center">
+                          <p className="text-sm text-muted-foreground mr-2">Sleep and recovery data</p>
+                          {ouraConnected && (
+                            <span className="inline-flex items-center text-xs text-green-600">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Connected
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <Button variant="outline" className="flex items-center gap-2">
-                      <span>Connect</span>
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
+                    {ouraConnected ? (
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={handleImportSleepData}
+                          disabled={importingData}
+                        >
+                          {importingData ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Importing...
+                            </>
+                          ) : (
+                            "Import Data"
+                          )}
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="text-red-500 hover:text-red-600"
+                          onClick={handleOuraDisconnect}
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Disconnect
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        className="flex items-center gap-2"
+                        onClick={handleOuraConnect}
+                        disabled={processingOuraAuth}
+                      >
+                        {processingOuraAuth ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Connecting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Connect</span>
+                            <ExternalLink className="w-4 h-4" />
+                          </>
+                        )}
+                      </Button>
+                    )}
                   </div>
                   <Separator />
                   <div className="p-6">
                     <div className="space-y-4">
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
-                          <Label htmlFor="oura-api-key">API Key</Label>
-                          <Input id="oura-api-key" type="password" placeholder="••••••••••••••••" />
+                          <Label htmlFor="oura-client-id">Client ID</Label>
+                          <Input 
+                            id="oura-client-id" 
+                            placeholder="Enter client ID" 
+                            value={ouraClientId}
+                            onChange={(e) => {
+                              setOuraClientId(e.target.value);
+                              localStorage.setItem('ouraClientId', e.target.value);
+                            }}
+                          />
                         </div>
                         <div className="space-y-2">
-                          <Label htmlFor="oura-client-id">Client ID</Label>
-                          <Input id="oura-client-id" placeholder="Enter client ID" />
+                          <Label htmlFor="oura-client-secret">Client Secret</Label>
+                          <Input 
+                            id="oura-client-secret" 
+                            type="password" 
+                            placeholder="••••••••••••••••"
+                            value={ouraClientSecret}
+                            onChange={(e) => {
+                              setOuraClientSecret(e.target.value);
+                              localStorage.setItem('ouraClientSecret', e.target.value);
+                            }}
+                          />
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Switch id="oura-auto-sync" />
+                        <Switch 
+                          id="oura-auto-sync" 
+                          checked={ouraAutoSync}
+                          onCheckedChange={setOuraAutoSync}
+                        />
                         <Label htmlFor="oura-auto-sync">Auto-sync sleep data daily</Label>
                       </div>
                     </div>
@@ -119,19 +341,38 @@ const Settings: React.FC = () => {
                       <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                         <div className="space-y-2">
                           <Label htmlFor="strava-client-id">Client ID</Label>
-                          <Input id="strava-client-id" placeholder="Enter client ID" />
+                          <Input 
+                            id="strava-client-id" 
+                            placeholder="Enter client ID"
+                            value={stravaClientId}
+                            onChange={(e) => setStravaClientId(e.target.value)}
+                          />
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="strava-client-secret">Client Secret</Label>
-                          <Input id="strava-client-secret" type="password" placeholder="••••••••••••••••" />
+                          <Input 
+                            id="strava-client-secret" 
+                            type="password" 
+                            placeholder="••••••••••••••••"
+                            value={stravaClientSecret}
+                            onChange={(e) => setStravaClientSecret(e.target.value)}
+                          />
                         </div>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Switch id="strava-auto-import" />
+                        <Switch 
+                          id="strava-auto-import"
+                          checked={stravaAutoImport}
+                          onCheckedChange={setStravaAutoImport}
+                        />
                         <Label htmlFor="strava-auto-import">Auto-import new activities</Label>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Switch id="strava-power-data" />
+                        <Switch 
+                          id="strava-power-data"
+                          checked={stravaPowerData}
+                          onCheckedChange={setStravaPowerData}
+                        />
                         <Label htmlFor="strava-power-data">Include power data</Label>
                       </div>
                     </div>
@@ -161,13 +402,21 @@ const Settings: React.FC = () => {
                     <div className="space-y-4">
                       <div className="space-y-2">
                         <Label htmlFor="openai-api-key">API Key</Label>
-                        <Input id="openai-api-key" type="password" placeholder="sk-••••••••••••••••" />
+                        <Input 
+                          id="openai-api-key" 
+                          type="password" 
+                          placeholder="sk-••••••••••••••••"
+                          value={openAIKey}
+                          onChange={(e) => setOpenAIKey(e.target.value)}
+                        />
                       </div>
                       <div className="space-y-2">
                         <Label htmlFor="openai-model">GPT Model</Label>
                         <select
                           id="openai-model"
                           className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 disabled:cursor-not-allowed disabled:opacity-50"
+                          value={openAIModel}
+                          onChange={(e) => setOpenAIModel(e.target.value)}
                         >
                           <option>gpt-4o</option>
                           <option>gpt-4</option>
@@ -175,7 +424,11 @@ const Settings: React.FC = () => {
                         </select>
                       </div>
                       <div className="flex items-center space-x-2">
-                        <Switch id="openai-daily-insights" />
+                        <Switch 
+                          id="openai-daily-insights"
+                          checked={openAIDailyInsights}
+                          onCheckedChange={setOpenAIDailyInsights}
+                        />
                         <Label htmlFor="openai-daily-insights">Generate daily insights</Label>
                       </div>
                     </div>
