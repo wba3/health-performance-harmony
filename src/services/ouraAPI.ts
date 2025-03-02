@@ -41,15 +41,34 @@ export interface OuraCredentials {
   expiresAt: number;
 }
 
-// Store Oura credentials in localStorage for development
-// In production, these should be stored securely in the database
-const storeOuraCredentials = (credentials: OuraCredentials): void => {
-  localStorage.setItem('ouraCredentials', JSON.stringify(credentials));
+// Store Oura credentials in the database
+const storeOuraCredentials = async (credentials: OuraCredentials): Promise<void> => {
+  await supabase
+    .from('oura_credentials')
+    .upsert({
+      id: 1, // Assuming a single user for simplicity
+      access_token: credentials.accessToken,
+      refresh_token: credentials.refreshToken,
+      expires_at: credentials.expiresAt,
+    });
 };
 
-const getOuraCredentials = (): OuraCredentials | null => {
-  const credentials = localStorage.getItem('ouraCredentials');
-  return credentials ? JSON.parse(credentials) : null;
+const getOuraCredentials = async (): Promise<OuraCredentials | null> => {
+  const { data, error } = await supabase
+    .from('oura_credentials')
+    .select('*')
+    .eq('id', 1)
+    .single();
+
+  if (error || !data) {
+    return null;
+  }
+
+  return {
+    accessToken: data.access_token,
+    refreshToken: data.refresh_token,
+    expiresAt: data.expires_at,
+  };
 };
 
 // Initialize OAuth flow
@@ -112,7 +131,7 @@ export const handleOuraCallback = async (
     const expiresAt = Date.now() + (tokenData.expires_in * 1000);
     
     // Store credentials
-    storeOuraCredentials({
+    await storeOuraCredentials({
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       expiresAt,
@@ -130,7 +149,7 @@ const refreshTokenIfNeeded = async (
   clientId: string,
   clientSecret: string
 ): Promise<string | null> => {
-  const credentials = getOuraCredentials();
+  const credentials = await getOuraCredentials();
   if (!credentials) {
     return null;
   }
@@ -165,7 +184,7 @@ const refreshTokenIfNeeded = async (
     const expiresAt = Date.now() + (tokenData.expires_in * 1000);
     
     // Store new credentials
-    storeOuraCredentials({
+    await storeOuraCredentials({
       accessToken: tokenData.access_token,
       refreshToken: tokenData.refresh_token,
       expiresAt,
@@ -281,12 +300,15 @@ export const importOuraSleepData = async (
 };
 
 // Check if user is connected to Oura
-export const isOuraConnected = (): boolean => {
-  return getOuraCredentials() !== null;
+export const isOuraConnected = async (): Promise<boolean> => {
+  const credentials = await getOuraCredentials();
+  return credentials !== null;
 };
 
 // Disconnect from Oura
-export const disconnectOura = (): void => {
-  localStorage.removeItem('ouraCredentials');
-  localStorage.removeItem('ouraAuthState');
+export const disconnectOura = async (): Promise<void> => {
+  await supabase
+    .from('oura_credentials')
+    .delete()
+    .eq('id', 1);
 };

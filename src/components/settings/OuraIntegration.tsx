@@ -1,4 +1,3 @@
-
 import React, { useState } from "react";
 import { Moon, CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,8 @@ import {
   disconnectOura, 
   importOuraSleepData 
 } from "@/services/ouraAPI";
+import { useAuth } from "@/hooks/useAuth";
+import { Navigate } from "react-router-dom";
 
 interface OuraIntegrationProps {
   processingAuth: boolean;
@@ -25,6 +26,7 @@ const OuraIntegration: React.FC<OuraIntegrationProps> = ({
   setProcessingAuth 
 }) => {
   const { toast } = useToast();
+  const { isAuthenticated } = useAuth();
   
   // Oura connection state
   const [connected, setConnected] = useState<boolean>(isOuraConnected());
@@ -32,6 +34,10 @@ const OuraIntegration: React.FC<OuraIntegrationProps> = ({
   const [clientSecret, setClientSecret] = useState<string>(localStorage.getItem('ouraClientSecret') || '');
   const [autoSync, setAutoSync] = useState<boolean>(false);
   const [importingData, setImportingData] = useState<boolean>(false);
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
 
   // Connect to Oura
   const handleConnect = () => {

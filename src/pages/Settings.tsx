@@ -3,9 +3,16 @@ import PageTransition from "@/components/layout/PageTransition";
 import { Settings as SettingsIcon } from "lucide-react";
 import SettingsNav from "@/components/settings/SettingsNav";
 import ApiSettings from "@/components/settings/ApiSettings";
+import { useAuth } from "@/hooks/useAuth";
+import { Navigate } from "react-router-dom";
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('api');
+  const { isAuthenticated } = useAuth();
+
+  if (!isAuthenticated) {
+    return <Navigate to="/login" />;
+  }
 
   return (
     <PageTransition>

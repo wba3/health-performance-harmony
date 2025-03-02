@@ -1,24 +1,22 @@
-
-/**
- * Unofficial Peloton API integration
- * Based on: https://github.com/ostranme/peloton-postman
- */
-
-// Store auth tokens in localStorage
-const PELOTON_SESSION_KEY = 'peloton_session';
-const PELOTON_USER_ID_KEY = 'peloton_user_id';
-const PELOTON_USERNAME_KEY = 'peloton_username';
+import { supabase } from "@/integrations/supabase/client";
 
 // Base API URL
 const PELOTON_API_URL = 'https://api.onepeloton.com';
 
+// Store auth tokens in the database
+const PELOTON_CREDENTIALS_TABLE = 'peloton_credentials';
+
 /**
  * Check if user is connected to Peloton
  */
-export const isPelotonConnected = (): boolean => {
-  const session = localStorage.getItem(PELOTON_SESSION_KEY);
-  const userId = localStorage.getItem(PELOTON_USER_ID_KEY);
-  return !!session && !!userId;
+export const isPelotonConnected = async (): Promise<boolean> => {
+  const { data, error } = await supabase
+    .from(PELOTON_CREDENTIALS_TABLE)
+    .select('session_id, user_id')
+    .eq('id', 1)
+    .single();
+
+  return !!data && !!data.session_id && !!data.user_id;
 };
 
 /**
@@ -50,10 +48,15 @@ export const connectToPeloton = async (
 
     const data = await response.json();
     
-    // Store session token and user ID
-    localStorage.setItem(PELOTON_SESSION_KEY, data.session_id);
-    localStorage.setItem(PELOTON_USER_ID_KEY, data.user_id);
-    localStorage.setItem(PELOTON_USERNAME_KEY, username);
+    // Store session token and user ID in the database
+    await supabase
+      .from(PELOTON_CREDENTIALS_TABLE)
+      .upsert({
+        id: 1, // Assuming a single user for simplicity
+        session_id: data.session_id,
+        user_id: data.user_id,
+        username: username,
+      });
     
     console.log('Connected to Peloton successfully');
     return true;
@@ -66,21 +69,26 @@ export const connectToPeloton = async (
 /**
  * Disconnect from Peloton
  */
-export const disconnectPeloton = (): void => {
-  localStorage.removeItem(PELOTON_SESSION_KEY);
-  localStorage.removeItem(PELOTON_USER_ID_KEY);
-  localStorage.removeItem(PELOTON_USERNAME_KEY);
+export const disconnectPeloton = async (): Promise<void> => {
+  await supabase
+    .from(PELOTON_CREDENTIALS_TABLE)
+    .delete()
+    .eq('id', 1);
 };
 
 /**
  * Get Peloton auth headers
  */
-const getPelotonHeaders = (): HeadersInit => {
-  const session = localStorage.getItem(PELOTON_SESSION_KEY);
+const getPelotonHeaders = async (): Promise<HeadersInit> => {
+  const { data } = await supabase
+    .from(PELOTON_CREDENTIALS_TABLE)
+    .select('session_id')
+    .eq('id', 1)
+    .single();
   
   return {
     'Content-Type': 'application/json',
-    'Cookie': `peloton_session_id=${session}`,
+    'Cookie': `peloton_session_id=${data.session_id}`,
   };
 };
 
@@ -88,14 +96,19 @@ const getPelotonHeaders = (): HeadersInit => {
  * Test Peloton connection
  */
 export const testPelotonConnection = async (): Promise<boolean> => {
-  if (!isPelotonConnected()) {
+  if (!await isPelotonConnected()) {
     return false;
   }
   
   try {
-    const userId = localStorage.getItem(PELOTON_USER_ID_KEY);
-    const response = await fetch(`${PELOTON_API_URL}/api/user/${userId}`, {
-      headers: getPelotonHeaders(),
+    const { data } = await supabase
+      .from(PELOTON_CREDENTIALS_TABLE)
+      .select('user_id')
+      .eq('id', 1)
+      .single();
+    
+    const response = await fetch(`${PELOTON_API_URL}/api/user/${data.user_id}`, {
+      headers: await getPelotonHeaders(),
     });
     
     return response.ok;
@@ -111,16 +124,21 @@ export const testPelotonConnection = async (): Promise<boolean> => {
 export const getPelotonWorkouts = async (
   limit: number = 10
 ): Promise<any[]> => {
-  if (!isPelotonConnected()) {
+  if (!await isPelotonConnected()) {
     return [];
   }
   
   try {
-    const userId = localStorage.getItem(PELOTON_USER_ID_KEY);
+    const { data } = await supabase
+      .from(PELOTON_CREDENTIALS_TABLE)
+      .select('user_id')
+      .eq('id', 1)
+      .single();
+    
     const response = await fetch(
-      `${PELOTON_API_URL}/api/user/${userId}/workouts?limit=${limit}&page=0`, 
+      `${PELOTON_API_URL}/api/user/${data.user_id}/workouts?limit=${limit}&page=0`, 
       {
-        headers: getPelotonHeaders(),
+        headers: await getPelotonHeaders(),
       }
     );
     
@@ -128,8 +146,8 @@ export const getPelotonWorkouts = async (
       throw new Error('Failed to fetch workouts');
     }
     
-    const data = await response.json();
-    return data.data || [];
+    const responseData = await response.json();
+    return responseData.data || [];
   } catch (error) {
     console.error('Error fetching Peloton workouts:', error);
     return [];
@@ -140,7 +158,7 @@ export const getPelotonWorkouts = async (
  * Get workout details by ID
  */
 export const getWorkoutDetails = async (workoutId: string): Promise<any> => {
-  if (!isPelotonConnected()) {
+  if (!await isPelotonConnected()) {
     return null;
   }
   
@@ -148,7 +166,7 @@ export const getWorkoutDetails = async (workoutId: string): Promise<any> => {
     const response = await fetch(
       `${PELOTON_API_URL}/api/workout/${workoutId}`,
       {
-        headers: getPelotonHeaders(),
+        headers: await getPelotonHeaders(),
       }
     );
     
@@ -169,7 +187,7 @@ export const getWorkoutDetails = async (workoutId: string): Promise<any> => {
 export const importPelotonWorkouts = async (
   limit: number = 30
 ): Promise<number> => {
-  if (!isPelotonConnected()) {
+  if (!await isPelotonConnected()) {
     throw new Error('Not connected to Peloton');
   }
 
@@ -240,16 +258,21 @@ export const importPelotonWorkouts = async (
  * Get user's Peloton profile info
  */
 export const getPelotonProfile = async (): Promise<any> => {
-  if (!isPelotonConnected()) {
+  if (!await isPelotonConnected()) {
     return null;
   }
   
   try {
-    const userId = localStorage.getItem(PELOTON_USER_ID_KEY);
+    const { data } = await supabase
+      .from(PELOTON_CREDENTIALS_TABLE)
+      .select('user_id')
+      .eq('id', 1)
+      .single();
+    
     const response = await fetch(
-      `${PELOTON_API_URL}/api/user/${userId}`,
+      `${PELOTON_API_URL}/api/user/${data.user_id}`,
       {
-        headers: getPelotonHeaders(),
+        headers: await getPelotonHeaders(),
       }
     );
     
