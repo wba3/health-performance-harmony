@@ -629,21 +629,21 @@ const Settings: React.FC = () => {
                               </a>
                             </h4>
                             <p className="text-sm text-amber-700 mt-1">
-                              In your Strava API settings, add <strong>EXACTLY</strong> the following:
+                              In your Strava API settings, you <strong>MUST</strong> configure <strong>EXACTLY</strong> as follows:
                             </p>
                             <ol className="text-sm text-amber-700 mt-2 space-y-2 list-decimal pl-5">
                               <li>
                                 <div className="font-medium">Authorization Domain:</div>
-                                <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all">{appDomain}</code>
+                                <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all select-all">{appDomain}</code>
                                 <div className="italic text-xs mt-1">
-                                  ⚠️ Use <strong>ONLY</strong> this domain (no http:// or path)
+                                  ⚠️ Use <strong>ONLY</strong> this domain (no http://, www, or slashes)
                                 </div>
                               </li>
                               <li>
                                 <div className="font-medium">Redirect URI:</div>
-                                <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all">{redirectUri}</code>
+                                <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all select-all">{redirectUri}</code>
                                 <div className="italic text-xs mt-1">
-                                  ⚠️ Include the <strong>complete</strong> URL with path
+                                  ⚠️ Include the <strong>COMPLETE</strong> URL exactly as shown above
                                 </div>
                               </li>
                             </ol>
@@ -660,7 +660,9 @@ const Settings: React.FC = () => {
                               <li>Try using an incognito/private browsing window</li>
                               <li>Clear your browser's cache and cookies</li>
                               <li>Make sure you're signed in with the correct Google account linked to Strava</li>
-                              <li>Double check your Strava API settings match exactly what's shown above</li>
+                              <li>Double check your Strava API settings match <strong>exactly</strong> what's shown above</li>
+                              <li>After saving API settings in Strava, wait a few minutes before trying again</li>
+                              <li>If you get a "Bad Request" error mentioning "redirect_uri", verify the settings above are exact</li>
                             </ul>
                           </div>
                         </div>

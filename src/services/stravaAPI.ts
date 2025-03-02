@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
@@ -35,8 +34,10 @@ export const initiateStravaAuth = (clientId: string) => {
     console.log('App domain (for Authorization Domain setting):', APP_DOMAIN);
     console.log('Full redirect URI (for full Redirect URI setting):', REDIRECT_URI);
     
-    // Generate a random state for security
-    const state = Math.random().toString(36).substring(2, 15) + Math.random().toString(36).substring(2, 15);
+    // Generate a random state for security - using a more secure method
+    const array = new Uint32Array(8);
+    window.crypto.getRandomValues(array);
+    const state = Array.from(array, x => x.toString(16).padStart(8, '0')).join('');
     localStorage.setItem('strava_auth_state', state);
     
     // Build authorization URL with approval_prompt=force to ensure we always get the consent screen
@@ -108,6 +109,14 @@ export const handleStravaCallback = async (
     
     // Exchange authorization code for tokens
     console.log('POST request to:', STRAVA_TOKEN_URL);
+    console.log('Request body:', {
+      client_id: clientId,
+      client_secret: '[REDACTED]',
+      code: code.substring(0, 5) + '...',
+      grant_type: 'authorization_code',
+      redirect_uri: REDIRECT_URI
+    });
+    
     const tokenResponse = await fetch(STRAVA_TOKEN_URL, {
       method: 'POST',
       headers: {
@@ -126,39 +135,53 @@ export const handleStravaCallback = async (
     
     if (!tokenResponse.ok) {
       let errorText = '';
-      let errorData = {};
+      let errorData: any = {};
       
       try {
         errorData = await tokenResponse.json();
         errorText = JSON.stringify(errorData);
+        console.error('Detailed error response:', errorData);
+        
+        // Log specific fields for debugging
+        if (errorData.errors && Array.isArray(errorData.errors)) {
+          console.error('Error fields:', errorData.errors.map((e: any) => 
+            `${e.resource || ''}.${e.field || ''}: ${e.code || ''}`).join(', '));
+        }
       } catch (e) {
         errorText = await tokenResponse.text();
+        console.error('Error response (plain text):', errorText);
       }
       
       console.error('Strava token exchange failed:', tokenResponse.statusText, errorText);
       
-      // Check for redirect_uri errors in the response
-      const hasRedirectUriError = 
-        (errorData && 
-         typeof errorData === 'object' && 
-         'errors' in errorData && 
-         Array.isArray((errorData as any).errors) && 
-         (errorData as any).errors.some((e: any) => 
-           e.field === 'redirect_uri' && e.code === 'invalid'));
+      // Check for redirect_uri errors in the response - with more specific error handling
+      const hasRedirectUriError = errorText.includes('redirect_uri') && 
+                                (errorText.includes('invalid') || 
+                                 errorText.includes('mismatch') || 
+                                 errorText.includes('doesn\'t match'));
       
-      if (hasRedirectUriError) {
+      if (hasRedirectUriError || 
+          (errorData && 
+           typeof errorData === 'object' && 
+           'errors' in errorData && 
+           Array.isArray((errorData as any).errors) && 
+           (errorData as any).errors.some((e: any) => 
+             e.field === 'redirect_uri' && e.code === 'invalid'))) {
+        
         toast({
           title: "Strava Redirect URI Configuration Error",
-          description: `Your Strava API settings need updating. Please configure:
-          1. In Strava Dashboard → Settings → API:
-          2. For "Authorization Domain" enter ONLY: "${APP_DOMAIN}" (without http:// or paths)
-          3. For "Redirect URI" enter EXACTLY: "${REDIRECT_URI}" (the complete URL)`,
+          description: `Please verify EXACTLY these settings in your Strava API Dashboard:
+           
+           1. Authorization Domain: ${APP_DOMAIN} (only the domain, no http://)
+           2. Redirect URI: ${REDIRECT_URI} (the complete URL)
+           
+           After updating, try connecting again.`,
           variant: "destructive",
         });
         
-        console.error('REDIRECT URI ERROR: You must configure EXACTLY as follows in Strava:');
-        console.error('1. Authorization Domain: ONLY enter this →', APP_DOMAIN);
-        console.error('2. Redirect URI: EXACTLY this →', REDIRECT_URI);
+        console.error('REDIRECT URI ERROR: The settings in Strava must match EXACTLY:');
+        console.error('1. Authorization Domain should be just:', APP_DOMAIN);
+        console.error('2. Redirect URI should be exactly:', REDIRECT_URI);
         return false;
       }
       
@@ -204,7 +227,7 @@ export const handleStravaCallback = async (
       } else {
         toast({
           title: "Connection Error",
-          description: `Strava API error: ${tokenResponse.status} ${tokenResponse.statusText}`,
+          description: `Strava API error: ${tokenResponse.status} ${tokenResponse.statusText}. Please verify your API settings and try again.`,
           variant: "destructive",
         });
       }
@@ -375,7 +398,7 @@ export const fetchAthleteProfile = async (clientId: string, clientSecret: string
          error.message.includes('accounts.google.com'))) {
       toast({
         title: "Google Authentication Issue",
-        description: "There was a problem with Google authentication. Make sure you're using the same Google account that's linked to your Strava account.",
+        description: "There was a problem with Google authentication. Make sure you're using the same Google account that's linked to your Strava.",
         variant: "warning",
       });
     }
@@ -505,4 +528,3 @@ export const importStravaActivities = async (
     throw error;
   }
 };
-
