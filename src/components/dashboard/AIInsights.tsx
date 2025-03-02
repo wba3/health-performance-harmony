@@ -1,36 +1,81 @@
 
 import React, { useEffect, useState } from "react";
 import DashboardCard from "./DashboardCard";
-import { Bot, ArrowRight, BrainCircuit } from "lucide-react";
+import { Bot, ArrowRight, BrainCircuit, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
 import { getAIInsights, AIInsight } from "@/services/database";
+import { generateInsights, isOpenAIConfigured } from "@/services/openaiAPI";
+import { useToast } from "@/components/ui/use-toast";
 
 interface AIInsightsProps {
   isLoading?: boolean;
 }
 
 const AIInsights: React.FC<AIInsightsProps> = ({ isLoading: initialLoading = false }) => {
+  const { toast } = useToast();
   const [insights, setInsights] = useState<AIInsight[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(initialLoading || true);
+  const [isGenerating, setIsGenerating] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
+  const [openAIConfigured, setOpenAIConfigured] = useState<boolean>(false);
 
   useEffect(() => {
-    const fetchInsights = async () => {
-      try {
-        const data = await getAIInsights(3);
-        setInsights(data);
-        setIsLoading(false);
-      } catch (err) {
-        console.error('Error fetching AI insights:', err);
-        setError('Failed to load AI insights');
-        setIsLoading(false);
-      }
-    };
-
+    setOpenAIConfigured(isOpenAIConfigured());
     fetchInsights();
   }, []);
+
+  const fetchInsights = async () => {
+    try {
+      const data = await getAIInsights(3);
+      setInsights(data);
+      setIsLoading(false);
+    } catch (err) {
+      console.error('Error fetching AI insights:', err);
+      setError('Failed to load AI insights');
+      setIsLoading(false);
+    }
+  };
+
+  const handleGenerateInsights = async () => {
+    if (!openAIConfigured) {
+      toast({
+        title: "OpenAI API Key Required",
+        description: "Please add your OpenAI API key in Settings to generate insights.",
+        variant: "destructive",
+      });
+      return;
+    }
+
+    setIsGenerating(true);
+    try {
+      const success = await generateInsights();
+      if (success) {
+        toast({
+          title: "Insights Generated",
+          description: "New AI insights have been generated based on your data.",
+        });
+        // Refetch insights
+        await fetchInsights();
+      } else {
+        toast({
+          title: "Generation Failed",
+          description: "Could not generate new insights. Please try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (err) {
+      console.error('Error generating insights:', err);
+      toast({
+        title: "Error",
+        description: "An error occurred while generating insights.",
+        variant: "destructive",
+      });
+    } finally {
+      setIsGenerating(false);
+    }
+  };
 
   // Fallback insights for empty state
   const placeholderInsights = [
@@ -97,7 +142,7 @@ const AIInsights: React.FC<AIInsightsProps> = ({ isLoading: initialLoading = fal
     >
       <div className="space-y-4">
         {error ? (
-          <div className="p-4 text-red-500 bg-red-50 rounded-md">
+          <div className="p-4 text-red-500 bg-red-50 rounded-md dark:bg-red-950/30">
             {error}
           </div>
         ) : !isLoading ? (
@@ -119,13 +164,20 @@ const AIInsights: React.FC<AIInsightsProps> = ({ isLoading: initialLoading = fal
             <Button 
               variant="outline" 
               className="w-full flex items-center justify-center gap-2"
-              onClick={() => {
-                // This will be connected to OpenAI API later
-                console.log("Getting more insights...");
-              }}
+              onClick={handleGenerateInsights}
+              disabled={isGenerating}
             >
-              <BrainCircuit className="w-4 h-4" />
-              <span>Get More Insights</span>
+              {isGenerating ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>Generating...</span>
+                </>
+              ) : (
+                <>
+                  <BrainCircuit className="w-4 h-4" />
+                  <span>Get More Insights</span>
+                </>
+              )}
             </Button>
           </>
         ) : (

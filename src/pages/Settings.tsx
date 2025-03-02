@@ -36,12 +36,20 @@ const Settings: React.FC = () => {
   const [openAIKey, setOpenAIKey] = useState<string>('');
   const [openAIModel, setOpenAIModel] = useState<string>('gpt-4o');
   const [openAIDailyInsights, setOpenAIDailyInsights] = useState<boolean>(false);
+  const [openAIConnected, setOpenAIConnected] = useState<boolean>(false);
 
   // Check connections on mount
   useEffect(() => {
     const checkConnections = () => {
       setOuraConnected(isOuraConnected());
       setStravaConnected(isStravaConnected());
+      
+      // Check OpenAI configuration
+      const savedOpenAIKey = localStorage.getItem('openai_api_key');
+      if (savedOpenAIKey) {
+        setOpenAIConnected(true);
+        setOpenAIKey(savedOpenAIKey);
+      }
     };
 
     checkConnections();
@@ -287,6 +295,40 @@ const Settings: React.FC = () => {
     } finally {
       setImportingStravaData(false);
     }
+  };
+
+  // Connect to OpenAI
+  const handleOpenAIConnect = () => {
+    if (!openAIKey) {
+      toast({
+        title: "API Key Required",
+        description: "Please enter your OpenAI API key.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    // Store API key in localStorage
+    localStorage.setItem('openai_api_key', openAIKey);
+    setOpenAIConnected(true);
+    
+    toast({
+      title: "Connected to OpenAI",
+      description: "Your OpenAI API key has been saved.",
+      variant: "default",
+    });
+  };
+
+  // Disconnect from OpenAI
+  const handleOpenAIDisconnect = () => {
+    localStorage.removeItem('openai_api_key');
+    setOpenAIConnected(false);
+    
+    toast({
+      title: "Disconnected",
+      description: "Your OpenAI API key has been removed.",
+      variant: "default",
+    });
   };
 
   return (
@@ -575,13 +617,35 @@ const Settings: React.FC = () => {
                       </div>
                       <div>
                         <h3 className="font-medium">OpenAI</h3>
-                        <p className="text-sm text-muted-foreground">AI-powered insights and coaching</p>
+                        <div className="flex items-center">
+                          <p className="text-sm text-muted-foreground mr-2">AI-powered insights and coaching</p>
+                          {openAIConnected && (
+                            <span className="inline-flex items-center text-xs text-green-600">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Connected
+                            </span>
+                          )}
+                        </div>
                       </div>
                     </div>
-                    <Button className="flex items-center gap-2">
-                      <span>Connect</span>
-                      <ExternalLink className="w-4 h-4" />
-                    </Button>
+                    {openAIConnected ? (
+                      <Button 
+                        variant="outline" 
+                        className="text-red-500 hover:text-red-600"
+                        onClick={handleOpenAIDisconnect}
+                      >
+                        <XCircle className="w-4 h-4 mr-1" />
+                        Disconnect
+                      </Button>
+                    ) : (
+                      <Button 
+                        className="flex items-center gap-2"
+                        onClick={handleOpenAIConnect}
+                      >
+                        <span>Connect</span>
+                        <ExternalLink className="w-4 h-4" />
+                      </Button>
+                    )}
                   </div>
                   <Separator />
                   <div className="p-6">
@@ -604,9 +668,9 @@ const Settings: React.FC = () => {
                           value={openAIModel}
                           onChange={(e) => setOpenAIModel(e.target.value)}
                         >
-                          <option>gpt-4o</option>
-                          <option>gpt-4</option>
-                          <option>gpt-3.5-turbo</option>
+                          <option value="gpt-4o">gpt-4o</option>
+                          <option value="gpt-4o-mini">gpt-4o-mini</option>
+                          <option value="gpt-3.5-turbo">gpt-3.5-turbo</option>
                         </select>
                       </div>
                       <div className="flex items-center space-x-2">
