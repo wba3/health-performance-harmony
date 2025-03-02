@@ -15,7 +15,15 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { toast } from "@/components/ui/use-toast";
 import { isOuraConnected, clearOuraCredentials } from "@/services/ouraAPI";
 
-const OuraIntegration = () => {
+interface OuraIntegrationProps {
+  processingAuth: boolean;
+  setProcessingAuth: React.Dispatch<React.SetStateAction<boolean>>;
+}
+
+const OuraIntegration: React.FC<OuraIntegrationProps> = ({ 
+  processingAuth, 
+  setProcessingAuth 
+}) => {
   const [connected, setConnected] = useState<boolean>(false);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
@@ -47,6 +55,9 @@ const OuraIntegration = () => {
       "daily email heartrate personal profile session tag workout"
     );
     
+    // Save that we're in the Oura auth flow
+    localStorage.setItem('ouraClientId', clientId);
+    
     // Redirect to Oura auth page
     window.location.href = `https://cloud.ouraring.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
   };
@@ -74,16 +85,32 @@ const OuraIntegration = () => {
 
   // Check for auth code in URL after Oura auth redirect
   useEffect(() => {
-    const urlParams = new URLSearchParams(window.location.search);
-    const authCode = urlParams.get("code");
-    
-    if (authCode && !connected) {
-      // Process Oura auth code - handle in parent component or here
-      console.log("Oura auth code received:", authCode);
-      // Here you would call authenticateWithOura(authCode) 
-      // and then update the UI accordingly
+    if (processingAuth) {
+      const urlParams = new URLSearchParams(window.location.search);
+      const authCode = urlParams.get("code");
+      
+      if (authCode) {
+        // Process Oura auth code
+        console.log("Processing Oura auth code:", authCode);
+        
+        // Here you would call an API to exchange the code for tokens
+        // For now, we'll simulate success
+        setTimeout(() => {
+          setConnected(true);
+          toast({
+            title: "Oura Ring Connected",
+            description: "Successfully connected your Oura Ring account.",
+          });
+          setProcessingAuth(false);
+          
+          // Clear URL parameters after processing
+          window.history.replaceState({}, document.title, window.location.pathname);
+        }, 2000);
+      } else {
+        setProcessingAuth(false);
+      }
     }
-  }, [connected]);
+  }, [processingAuth, setProcessingAuth]);
 
   return (
     <Card className="mb-6">
@@ -103,7 +130,7 @@ const OuraIntegration = () => {
         </CardDescription>
       </CardHeader>
       <CardContent className="pb-3">
-        {isLoading ? (
+        {isLoading || processingAuth ? (
           <div className="flex justify-center py-4">
             <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>
           </div>
@@ -160,7 +187,7 @@ const OuraIntegration = () => {
             <Button
               variant="outline"
               onClick={handleDisconnect}
-              disabled={isLoading}
+              disabled={isLoading || processingAuth}
             >
               Disconnect
             </Button>
@@ -169,7 +196,7 @@ const OuraIntegration = () => {
           <Button
             onClick={handleConnect}
             className="w-full"
-            disabled={isLoading}
+            disabled={isLoading || processingAuth}
           >
             Connect Oura Ring
           </Button>
