@@ -1,40 +1,49 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-// AI Insights
 export interface AIInsight {
-  id?: string;
+  id: string;
   date: string;
   insight_type: string;
   content: string;
-  is_read: boolean;
-  rating: number | null;
   created_at?: string;
+  rating?: number;
+  is_read?: boolean;
 }
 
-// Simpler type for creating insights to avoid recursive type issues
-export type AIInsightInput = {
+export interface AIInsightInput {
   date: string;
   insight_type: string;
   content: string;
-  is_read: boolean;
-  rating: number | null;
-  created_at?: string;
-};
+  rating?: number;
+  is_read?: boolean;
+}
 
-export const getAIInsights = async (limit: number = 10): Promise<AIInsight[]> => {
+/**
+ * Get AI insights for a specified number of days
+ * 
+ * @param days - The number of days of data to retrieve
+ * @returns Array of AI insight objects
+ */
+export const getAIInsights = async (days: number = 30): Promise<AIInsight[]> => {
   try {
+    // Calculate the date for "days" ago
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    const fromDate = date.toISOString().split('T')[0];
+
+    // Query the database for AI insights
     const { data, error } = await supabase
       .from('ai_insights')
       .select('*')
-      .order('created_at', { ascending: false })
-      .limit(limit);
-    
+      .gte('date', fromDate)
+      .order('date', { ascending: false });
+
     if (error) {
       console.error('Error fetching AI insights:', error);
       return [];
     }
-    
+
     return data || [];
   } catch (error) {
     console.error('Error in getAIInsights:', error);
@@ -42,62 +51,54 @@ export const getAIInsights = async (limit: number = 10): Promise<AIInsight[]> =>
   }
 };
 
-export const insertAIInsight = async (insight: AIInsightInput): Promise<string | null> => {
+/**
+ * Insert or update an AI insight in the database
+ * 
+ * @param insight - The AI insight to insert or update
+ * @returns The inserted/updated AI insight or null if there was an error
+ */
+export const upsertAIInsight = async (insight: AIInsightInput): Promise<AIInsight | null> => {
   try {
+    // Check if insight already exists for the same date and type
+    const { data: existingData } = await supabase
+      .from('ai_insights')
+      .select('id')
+      .eq('date', insight.date)
+      .eq('insight_type', insight.insight_type)
+      .limit(1);
+
+    if (existingData && existingData.length > 0) {
+      // Update existing insight
+      const { data, error } = await supabase
+        .from('ai_insights')
+        .update(insight)
+        .eq('id', existingData[0].id)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating AI insight:', error);
+        return null;
+      }
+
+      return data;
+    }
+
+    // Insert new insight
     const { data, error } = await supabase
       .from('ai_insights')
-      .insert([insight])
-      .select();
-    
+      .insert(insight)
+      .select()
+      .single();
+
     if (error) {
       console.error('Error inserting AI insight:', error);
       return null;
     }
-    
-    return data?.[0]?.id || null;
+
+    return data;
   } catch (error) {
-    console.error('Error in insertAIInsight:', error);
+    console.error('Error in upsertAIInsight:', error);
     return null;
-  }
-};
-
-// Adding alias to insertAIInsight for backward compatibility
-export const upsertAIInsight = insertAIInsight;
-
-export const markInsightAsRead = async (id: string): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('ai_insights')
-      .update({ is_read: true })
-      .eq('id', id);
-    
-    if (error) {
-      console.error('Error marking insight as read:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in markInsightAsRead:', error);
-    return false;
-  }
-};
-
-export const rateInsight = async (id: string, rating: number): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('ai_insights')
-      .update({ rating })
-      .eq('id', id);
-    
-    if (error) {
-      console.error('Error rating insight:', error);
-      return false;
-    }
-    
-    return true;
-  } catch (error) {
-    console.error('Error in rateInsight:', error);
-    return false;
   }
 };

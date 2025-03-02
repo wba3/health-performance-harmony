@@ -1,27 +1,52 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-// Sleep Data
 export interface SleepData {
-  id?: string;
+  id: string;
   date: string;
-  sleep_score: number;
-  total_sleep: number;
-  deep_sleep: number;
-  rem_sleep: number;
-  light_sleep: number;
-  resting_hr: number | null;
-  hrv: number | null;
-  respiratory_rate: number | null;
+  sleep_score?: number;
+  total_sleep?: number;
+  deep_sleep?: number;
+  rem_sleep?: number;
+  light_sleep?: number;
+  resting_hr?: number;
+  hrv?: number;
+  respiratory_rate?: number;
+  created_at?: string;
+  updated_at?: string;
 }
 
-export const getSleepData = async (limit: number = 7): Promise<SleepData[]> => {
+export interface SleepInsertData {
+  date: string;
+  sleep_score?: number;
+  total_sleep?: number;
+  deep_sleep?: number;
+  rem_sleep?: number;
+  light_sleep?: number;
+  resting_hr?: number;
+  hrv?: number;
+  respiratory_rate?: number;
+}
+
+/**
+ * Get sleep data for a specified number of days
+ * 
+ * @param days - The number of days of data to retrieve
+ * @returns Array of sleep data objects
+ */
+export const getSleepData = async (days: number = 30): Promise<SleepData[]> => {
   try {
+    // Calculate the date for "days" ago
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    const fromDate = date.toISOString().split('T')[0];
+
+    // Query the database for sleep data
     const { data, error } = await supabase
       .from('sleep_data')
       .select('*')
-      .order('date', { ascending: false })
-      .limit(limit);
+      .gte('date', fromDate)
+      .order('date', { ascending: false });
 
     if (error) {
       console.error('Error fetching sleep data:', error);
@@ -35,69 +60,55 @@ export const getSleepData = async (limit: number = 7): Promise<SleepData[]> => {
   }
 };
 
-export const getLatestSleepData = async (): Promise<SleepData | null> => {
+/**
+ * Insert sleep data into the database
+ * 
+ * @param sleepData - The sleep data to insert
+ * @returns The inserted sleep data or null if there was an error
+ */
+export const insertSleepData = async (sleepData: SleepInsertData): Promise<SleepData | null> => {
   try {
-    const data = await getSleepData(1);
-    return data.length > 0 ? data[0] : null;
-  } catch (error) {
-    console.error('Error in getLatestSleepData:', error);
-    return null;
-  }
-};
+    // Check if sleep data already exists for the date
+    const { data: existingData } = await supabase
+      .from('sleep_data')
+      .select('id')
+      .eq('date', sleepData.date)
+      .limit(1);
 
-export const insertSleepData = async (sleepData: SleepData): Promise<string | null> => {
-  try {
+    if (existingData && existingData.length > 0) {
+      console.log(`Sleep data for date ${sleepData.date} already exists.`);
+      
+      // Update existing data
+      const { data, error } = await supabase
+        .from('sleep_data')
+        .update(sleepData)
+        .eq('date', sleepData.date)
+        .select()
+        .single();
+
+      if (error) {
+        console.error('Error updating sleep data:', error);
+        return null;
+      }
+
+      return data;
+    }
+
+    // Insert new sleep data
     const { data, error } = await supabase
       .from('sleep_data')
-      .insert([sleepData])
-      .select();
+      .insert(sleepData)
+      .select()
+      .single();
 
     if (error) {
       console.error('Error inserting sleep data:', error);
       return null;
     }
 
-    return data?.[0]?.id || null;
+    return data;
   } catch (error) {
     console.error('Error in insertSleepData:', error);
     return null;
-  }
-};
-
-export const updateSleepData = async (id: string, updates: Partial<SleepData>): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('sleep_data')
-      .update(updates)
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error updating sleep data:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in updateSleepData:', error);
-    return false;
-  }
-};
-
-export const deleteSleepData = async (id: string): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('sleep_data')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting sleep data:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in deleteSleepData:', error);
-    return false;
   }
 };

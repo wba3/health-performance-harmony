@@ -10,7 +10,7 @@ interface SupabaseQueryResult<T> {
   error: any;
 }
 
-// Define a WorkoutData interface since it's missing from types
+// Define the WorkoutData interface - correctly typed for inserts
 export interface WorkoutData {
   external_id?: string;
   date: string;
@@ -27,6 +27,7 @@ export interface WorkoutData {
   additional_metrics?: Record<string, any>;
 }
 
+// Define the TrainingData interface - correctly typed for database rows
 export interface TrainingData {
   id: string;
   date: string;
@@ -42,9 +43,11 @@ export interface TrainingData {
   perceived_exertion?: number;
   external_id?: string;
   additional_metrics?: Record<string, any>;
+  created_at?: string;
+  updated_at?: string;
 }
 
-// Define formatters since they're missing
+// Define the formatters directly in this file to avoid imports
 const formatWorkoutData = (workoutData: WorkoutData): Record<string, any> => {
   return {
     ...workoutData,
@@ -68,6 +71,8 @@ const defineTrainingData = (data: any): TrainingData => {
     perceived_exertion: data.perceived_exertion,
     external_id: data.external_id,
     additional_metrics: data.additional_metrics || {},
+    created_at: data.created_at,
+    updated_at: data.updated_at,
   };
 };
 
@@ -85,13 +90,10 @@ export const saveWorkout = async (workoutData: WorkoutData): Promise<TrainingDat
       return null;
     }
 
-    // Format workout data for Supabase
-    const formattedData = formatWorkoutData(workoutData);
-
     // Insert the workout into the database
     const { data, error } = await supabase
       .from('training_data')
-      .insert(formattedData)
+      .insert(workoutData)
       .select()
       .single();
 
@@ -106,6 +108,11 @@ export const saveWorkout = async (workoutData: WorkoutData): Promise<TrainingDat
     return null;
   }
 };
+
+/**
+ * Insert training data (alias for saveWorkout for compatibility)
+ */
+export const insertTrainingData = saveWorkout;
 
 /**
  * Retrieves training data for the specified number of days
@@ -147,14 +154,11 @@ export const getTrainingData = async (days: number = 30): Promise<TrainingData[]
  */
 export const workoutExistsByExternalId = async (externalId: string): Promise<boolean> => {
   try {
-    // Use as type assertion to avoid deep type instantiation
-    const response = await supabase
+    const { data, error } = await supabase
       .from('training_data')
       .select('id')
       .eq('external_id', externalId)
-      .limit(1);
-    
-    const { data, error } = response as unknown as SupabaseQueryResult<WorkoutExistenceCheck[]>;
+      .limit(1) as unknown as SupabaseQueryResult<WorkoutExistenceCheck[]>;
 
     if (error) {
       console.error('Error checking workout existence:', error);
@@ -177,15 +181,12 @@ export const workoutExistsByExternalId = async (externalId: string): Promise<boo
  */
 export const getTrainingDataBySource = async (source: string, limit: number = 10): Promise<TrainingData[]> => {
   try {
-    // Use as type assertion to avoid deep type instantiation
-    const response = await supabase
+    const { data, error } = await supabase
       .from('training_data')
       .select('*')
       .eq('source', source)
       .order('date', { ascending: false })
-      .limit(limit);
-    
-    const { data, error } = response as unknown as SupabaseQueryResult<any[]>;
+      .limit(limit) as unknown as SupabaseQueryResult<any[]>;
 
     if (error) {
       console.error(`Error fetching ${source} training data:`, error);
