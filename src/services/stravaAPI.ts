@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
@@ -65,26 +64,41 @@ export const handleStravaCallback = async (
 ): Promise<boolean> => {
   console.log('Handling Strava callback with code:', code);
   
-  // Verify state matches for security
-  const savedState = localStorage.getItem('strava_auth_state');
-  if (state !== savedState) {
-    console.error('State mismatch in Strava auth flow');
-    console.log('Received state:', state);
-    console.log('Saved state:', savedState);
-    return false;
-  }
-  
   try {
-    // Validate client credentials
-    if (!clientId || !clientSecret) {
-      console.error('Missing Strava client credentials');
+    // Verify state matches for security
+    const savedState = localStorage.getItem('strava_auth_state');
+    if (state !== savedState) {
+      console.error('State mismatch in Strava auth flow');
+      console.log('Received state:', state);
+      console.log('Saved state:', savedState);
+      
+      toast({
+        title: "Security Error",
+        description: "Authentication state mismatch. Please try again.",
+        variant: "destructive",
+      });
+      
       return false;
     }
     
-    console.log('Exchanging code for tokens...');
+    // Validate client credentials
+    if (!clientId || !clientSecret) {
+      console.error('Missing Strava client credentials');
+      
+      toast({
+        title: "Configuration Error",
+        description: "Missing Strava API credentials. Please check your Client ID and Secret.",
+        variant: "destructive",
+      });
+      
+      return false;
+    }
+    
+    console.log('Exchanging code for tokens with client ID:', clientId);
     
     // Exchange authorization code for tokens
-    const response = await fetch(STRAVA_TOKEN_URL, {
+    console.log('POST request to:', STRAVA_TOKEN_URL);
+    const tokenResponse = await fetch(STRAVA_TOKEN_URL, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -97,15 +111,37 @@ export const handleStravaCallback = async (
       }),
     });
     
-    console.log('Token exchange response status:', response.status);
+    console.log('Token exchange response status:', tokenResponse.status);
     
-    if (!response.ok) {
-      const errorText = await response.text();
-      console.error('Strava token exchange failed:', response.statusText, errorText);
-      throw new Error(`Strava token exchange failed: ${response.status} ${response.statusText}`);
+    if (!tokenResponse.ok) {
+      const errorText = await tokenResponse.text();
+      console.error('Strava token exchange failed:', tokenResponse.statusText, errorText);
+      
+      // Show specific error message based on response
+      if (tokenResponse.status === 400) {
+        toast({
+          title: "Authorization Failed",
+          description: "Invalid authorization code or credentials. Please try connecting again.",
+          variant: "destructive",
+        });
+      } else if (tokenResponse.status === 401) {
+        toast({
+          title: "Authorization Failed",
+          description: "Invalid Strava API credentials. Please check your Client ID and Secret.",
+          variant: "destructive",
+        });
+      } else {
+        toast({
+          title: "Connection Error",
+          description: `Strava API error: ${tokenResponse.status} ${tokenResponse.statusText}`,
+          variant: "destructive",
+        });
+      }
+      
+      return false;
     }
     
-    const data = await response.json();
+    const data = await tokenResponse.json();
     console.log('Token exchange successful, received tokens');
     
     // Save tokens to localStorage
@@ -117,6 +153,13 @@ export const handleStravaCallback = async (
     return true;
   } catch (error) {
     console.error('Error during Strava token exchange:', error);
+    
+    toast({
+      title: "Connection Error",
+      description: "An unexpected error occurred while connecting to Strava. Please try again.",
+      variant: "destructive",
+    });
+    
     return false;
   }
 };

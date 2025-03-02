@@ -136,6 +136,9 @@ const Settings: React.FC = () => {
   const handleStravaOAuthCallback = (code: string, state: string) => {
     setProcessingStravaAuth(true);
     
+    console.log('Processing Strava OAuth callback with code:', code.substring(0, 5) + '...');
+    console.log('Client ID being used:', stravaClientId);
+    
     handleStravaCallback(code, state, stravaClientId, stravaClientSecret)
       .then(success => {
         if (success) {
