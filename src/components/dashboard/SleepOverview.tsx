@@ -1,13 +1,15 @@
 
 import React, { useEffect, useState } from "react";
 import DashboardCard from "./DashboardCard";
-import { BedDouble, ArrowRight, Moon, Activity, Heart, AlertCircle } from "lucide-react";
+import { BedDouble, ArrowRight, Moon, Activity, Heart, AlertCircle, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import MetricDisplay from "../ui/MetricDisplay";
 import { getSleepData, SleepData } from "@/services/database";
 import { formatMinutesToHoursAndMinutes } from "@/utils/formatters";
 import { isOuraConnected } from "@/services/ouraAPI";
+import { ResponsiveContainer, AreaChart, Area, XAxis, YAxis, Tooltip, CartesianGrid } from "recharts";
+import { formatDistance } from "date-fns";
 
 interface SleepOverviewProps {
   isLoading?: boolean;
@@ -15,6 +17,7 @@ interface SleepOverviewProps {
 
 const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading = false }) => {
   const [sleepData, setSleepData] = useState<SleepData | null>(null);
+  const [recentSleepData, setRecentSleepData] = useState<SleepData[]>([]);
   const [isLoading, setIsLoading] = useState<boolean>(initialLoading || true);
   const [error, setError] = useState<string | null>(null);
   const [ouraConnected, setOuraConnected] = useState<boolean>(false);
@@ -25,9 +28,17 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
     
     const fetchSleepData = async () => {
       try {
-        // Get the most recent sleep data entry (limit to 1)
-        const data = await getSleepData(1);
-        setSleepData(data.length > 0 ? data[0] : null);
+        // Get the most recent sleep data entries (limit to 7 for chart)
+        const data = await getSleepData(7);
+        
+        if (data.length > 0) {
+          // Latest sleep data for the metrics
+          setSleepData(data[0]);
+          
+          // Recent sleep data for the chart (reverse to show oldest to newest)
+          setRecentSleepData(data.reverse());
+        }
+        
         setIsLoading(false);
       } catch (err) {
         console.error('Error fetching sleep data:', err);
@@ -38,6 +49,34 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
 
     fetchSleepData();
   }, []);
+
+  // Format data for the chart
+  const chartData = recentSleepData.map(item => ({
+    date: item.date,
+    score: item.sleep_score,
+    // Converting minutes to hours for better visualization
+    total: Math.round((item.total_sleep / 60) * 10) / 10,
+    deep: Math.round((item.deep_sleep / 60) * 10) / 10,
+    rem: Math.round((item.rem_sleep / 60) * 10) / 10,
+  }));
+
+  // Calculate trend for sleep score (compare current to previous if available)
+  const calculateScoreTrend = () => {
+    if (recentSleepData.length < 2) return null;
+    
+    const current = recentSleepData[recentSleepData.length - 1].sleep_score;
+    const previous = recentSleepData[recentSleepData.length - 2].sleep_score;
+    
+    const diff = current - previous;
+    if (diff === 0) return null;
+    
+    return {
+      direction: diff > 0 ? "up" : "down",
+      value: `${Math.abs(diff)}% from yesterday`
+    };
+  };
+
+  const scoreTrend = calculateScoreTrend();
 
   // Fallback data for empty state or loading
   const placeholderData = {
@@ -90,44 +129,124 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
           </div>
         </div>
       ) : (
-        <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
-          <MetricDisplay
-            label="Sleep Score"
-            value={displayData.sleep_score}
-            unit="%"
-            icon={<Moon className="w-4 h-4" />}
-            trend="up"
-            trendValue="+5% from yesterday"
-            isLoading={isLoading}
-            className="col-span-2 md:col-span-1"
-          />
-          <MetricDisplay
-            label="Total Sleep"
-            value={formatMinutesToHoursAndMinutes(displayData.total_sleep)}
-            icon={<BedDouble className="w-4 h-4" />}
-            isLoading={isLoading}
-          />
-          <MetricDisplay
-            label="Deep Sleep"
-            value={formatMinutesToHoursAndMinutes(displayData.deep_sleep)}
-            icon={<Moon className="w-4 h-4" />}
-            isLoading={isLoading}
-          />
-          <MetricDisplay
-            label="REM Sleep"
-            value={formatMinutesToHoursAndMinutes(displayData.rem_sleep)}
-            icon={<Activity className="w-4 h-4" />}
-            isLoading={isLoading}
-          />
-          <MetricDisplay
-            label="Resting HR"
-            value={displayData.resting_hr}
-            unit="bpm"
-            icon={<Heart className="w-4 h-4" />}
-            trend="down"
-            trendValue="-2 bpm"
-            isLoading={isLoading}
-          />
+        <div className="space-y-4">
+          {/* Sleep metrics grid */}
+          <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+            <MetricDisplay
+              label="Sleep Score"
+              value={displayData.sleep_score}
+              unit="%"
+              icon={<Moon className="w-4 h-4" />}
+              trend={scoreTrend?.direction}
+              trendValue={scoreTrend?.value}
+              isLoading={isLoading}
+              className="col-span-2 md:col-span-1"
+            />
+            <MetricDisplay
+              label="Total Sleep"
+              value={formatMinutesToHoursAndMinutes(displayData.total_sleep)}
+              icon={<BedDouble className="w-4 h-4" />}
+              isLoading={isLoading}
+            />
+            <MetricDisplay
+              label="Deep Sleep"
+              value={formatMinutesToHoursAndMinutes(displayData.deep_sleep)}
+              icon={<Moon className="w-4 h-4" />}
+              isLoading={isLoading}
+            />
+            <MetricDisplay
+              label="REM Sleep"
+              value={formatMinutesToHoursAndMinutes(displayData.rem_sleep)}
+              icon={<Activity className="w-4 h-4" />}
+              isLoading={isLoading}
+            />
+            <MetricDisplay
+              label="Resting HR"
+              value={displayData.resting_hr}
+              unit="bpm"
+              icon={<Heart className="w-4 h-4" />}
+              isLoading={isLoading}
+            />
+          </div>
+
+          {/* Sleep trend chart */}
+          {chartData.length > 1 && (
+            <div className="mt-6 pt-4 border-t">
+              <div className="flex items-center justify-between mb-2">
+                <h3 className="text-sm font-medium flex items-center gap-1.5">
+                  <Calendar className="w-4 h-4" />
+                  <span>Recent Sleep Trends</span>
+                </h3>
+                <div className="flex items-center gap-2 text-xs">
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-purple-400"></span>
+                    <span>Score</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="w-2 h-2 rounded-full bg-blue-400"></span>
+                    <span>Hours</span>
+                  </div>
+                </div>
+              </div>
+              <div className="h-48 w-full">
+                <ResponsiveContainer width="100%" height="100%">
+                  <AreaChart data={chartData} margin={{ top: 5, right: 5, bottom: 5, left: -15 }}>
+                    <defs>
+                      <linearGradient id="colorScore" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="rgb(192, 132, 252)" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="rgb(192, 132, 252)" stopOpacity={0.1}/>
+                      </linearGradient>
+                      <linearGradient id="colorTotal" x1="0" y1="0" x2="0" y2="1">
+                        <stop offset="5%" stopColor="rgb(96, 165, 250)" stopOpacity={0.8}/>
+                        <stop offset="95%" stopColor="rgb(96, 165, 250)" stopOpacity={0.1}/>
+                      </linearGradient>
+                    </defs>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} opacity={0.2} />
+                    <XAxis 
+                      dataKey="date" 
+                      tick={{ fontSize: 10 }}
+                      tickFormatter={(value) => {
+                        const date = new Date(value);
+                        const today = new Date();
+                        if (date.setHours(0, 0, 0, 0) === today.setHours(0, 0, 0, 0)) return 'Today';
+                        return formatDistance(date, today, { addSuffix: true });
+                      }}
+                    />
+                    <YAxis yAxisId="left" domain={[0, 100]} hide />
+                    <YAxis yAxisId="right" orientation="right" domain={[0, 12]} tickCount={5} tick={{ fontSize: 10 }} />
+                    <Tooltip 
+                      formatter={(value, name) => {
+                        if (name === 'score') return [`${value}%`, 'Sleep Score'];
+                        return [`${value}h`, 'Sleep Duration'];
+                      }}
+                      labelFormatter={(label) => {
+                        const date = new Date(label);
+                        return date.toLocaleDateString('en-US', { weekday: 'short', month: 'short', day: 'numeric' });
+                      }}
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="score" 
+                      stroke="rgb(192, 132, 252)" 
+                      fillOpacity={1}
+                      fill="url(#colorScore)"
+                      yAxisId="left"
+                      name="score"
+                    />
+                    <Area 
+                      type="monotone" 
+                      dataKey="total" 
+                      stroke="rgb(96, 165, 250)" 
+                      fillOpacity={1}
+                      fill="url(#colorTotal)"
+                      yAxisId="right"
+                      name="total"
+                    />
+                  </AreaChart>
+                </ResponsiveContainer>
+              </div>
+            </div>
+          )}
         </div>
       )}
     </DashboardCard>
