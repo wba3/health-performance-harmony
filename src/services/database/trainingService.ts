@@ -106,14 +106,14 @@ export const workoutExistsByExternalId = async (externalId: string): Promise<boo
       .from('training_data')
       .select('id')
       .eq('external_id', externalId)
-      .limit(1);
+      .limit(1) as { data: WorkoutExistenceCheck[] | null, error: any };
 
     if (error) {
       console.error('Error checking workout existence:', error);
       return false;
     }
 
-    return data && data.length > 0;
+    return data !== null && data.length > 0;
   } catch (error) {
     console.error('Error in workoutExistsByExternalId:', error);
     return false;
@@ -128,7 +128,7 @@ export const getTrainingDataBySource = async (source: string, limit: number = 7)
       .select('*')
       .eq('source', source)
       .order('date', { ascending: false })
-      .limit(limit);
+      .limit(limit) as { data: TrainingData[] | null, error: any };
 
     if (error) {
       console.error(`Error fetching ${source} training data:`, error);
