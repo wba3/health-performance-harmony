@@ -19,7 +19,7 @@ const ErrorStateCard: React.FC<ErrorStateCardProps> = ({
 }) => {
   return (
     <Card className="overflow-hidden">
-      <CardHeader className="bg-zinc-950 text-white">
+      <CardHeader className="bg-primary text-primary-foreground">
         <CardTitle className="flex items-center justify-between">
           <span className="flex items-center">
             {icon}

@@ -34,17 +34,17 @@ const DashboardCard: React.FC<DashboardCardProps> = ({
       )}
       {...props}
     >
-      <div className="px-6 py-5 flex items-center justify-between border-b">
+      <div className="px-4 sm:px-6 py-4 sm:py-5 flex items-center justify-between border-b">
         <div className="flex items-center gap-3">
           {icon && <div className="text-primary">{icon}</div>}
           <div>
-            <h3 className="text-lg font-medium">{title}</h3>
-            {subtitle && <p className="text-sm text-muted-foreground">{subtitle}</p>}
+            <h3 className="text-base sm:text-lg font-medium">{title}</h3>
+            {subtitle && <p className="text-xs sm:text-sm text-muted-foreground">{subtitle}</p>}
           </div>
         </div>
         {headerAction && <div>{headerAction}</div>}
       </div>
-      <div className="p-6">{children}</div>
+      <div className="p-4 sm:p-6">{children}</div>
     </motion.div>
   );
 };

@@ -10,18 +10,18 @@ const LandingPage: React.FC = () => {
     <PageTransition>
       <div className="container mx-auto px-4 pt-24 pb-16 min-h-screen flex flex-col items-center justify-center">
         <div className="max-w-3xl mx-auto text-center">
-          <div className="mb-6 flex justify-center gap-3">
-            <Activity className="h-12 w-12 text-primary" />
-            <Moon className="h-12 w-12 text-blue-400" />
-            <Dumbbell className="h-12 w-12 text-orange-500" />
-            <BrainCircuit className="h-12 w-12 text-green-500" />
+          <div className="mb-6 flex justify-center gap-3 flex-wrap">
+            <Activity className="h-10 w-10 md:h-12 md:w-12 text-primary" />
+            <Moon className="h-10 w-10 md:h-12 md:w-12 text-blue-400" />
+            <Dumbbell className="h-10 w-10 md:h-12 md:w-12 text-orange-500" />
+            <BrainCircuit className="h-10 w-10 md:h-12 md:w-12 text-green-500" />
           </div>
           
-          <h1 className="text-5xl font-bold tracking-tighter mb-4">
+          <h1 className="text-4xl md:text-5xl font-bold tracking-tighter mb-4">
             Health & Performance Tracker
           </h1>
           
-          <p className="text-xl text-muted-foreground mb-8">
+          <p className="text-lg md:text-xl text-muted-foreground mb-8">
             Track your sleep, training, and get AI-powered coaching insights to optimize your performance.
           </p>
           

@@ -21,19 +21,25 @@ const Dashboard: React.FC = () => {
           </div>
         </section>
 
-        <div className="grid gap-6 md:grid-cols-4">
-          <SleepOverview />
-          <TrainingOverview />
-          <AIInsights />
+        <div className="grid gap-6 grid-cols-1 md:grid-cols-4">
+          <div className="col-span-1 md:col-span-2 lg:col-span-1">
+            <SleepOverview />
+          </div>
+          <div className="col-span-1 md:col-span-2 lg:col-span-1">
+            <TrainingOverview />
+          </div>
+          <div className="col-span-1 md:col-span-4 lg:col-span-2">
+            <AIInsights />
+          </div>
 
           {/* Quick Links */}
-          <div className="col-span-1 md:col-span-2 space-y-6">
+          <div className="col-span-1 md:col-span-4 lg:col-span-4 space-y-6">
             <h3 className="text-lg font-medium">Quick Actions</h3>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
               <Button
                 variant="outline"
                 size="lg"
-                className="h-auto py-6 flex flex-col items-center justify-center gap-2 hover:bg-primary/5"
+                className="h-auto py-6 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 dark:hover:bg-primary/10"
                 asChild
               >
                 <Link to="/sleep">
@@ -44,7 +50,7 @@ const Dashboard: React.FC = () => {
               <Button
                 variant="outline"
                 size="lg"
-                className="h-auto py-6 flex flex-col items-center justify-center gap-2 hover:bg-primary/5"
+                className="h-auto py-6 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 dark:hover:bg-primary/10"
                 asChild
               >
                 <Link to="/training">
@@ -55,7 +61,7 @@ const Dashboard: React.FC = () => {
               <Button
                 variant="outline"
                 size="lg"
-                className="h-auto py-6 flex flex-col items-center justify-center gap-2 hover:bg-primary/5"
+                className="h-auto py-6 flex flex-col items-center justify-center gap-2 hover:bg-primary/5 dark:hover:bg-primary/10"
                 asChild
               >
                 <Link to="/ai-coach">

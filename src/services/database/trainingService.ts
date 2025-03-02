@@ -1,112 +1,114 @@
 
-import { supabase } from "@/integrations/supabase/client";
+// Fixing the Type instantiation error in trainingService.ts
+// This approach uses explicit typing to avoid excessive type recursion
 
-// Training Data
+import { supabase } from "@/integrations/supabase/client";
+import { defineTrainingData, formatWorkoutData } from "@/utils/formatters";
+import { WorkoutData } from "@/integrations/supabase/types";
+
+// Define simplified types to prevent deep instantiation
+type WorkoutExistenceCheck = { id: string };
+type SupabaseQueryResult<T> = { data: T | null, error: any };
+
 export interface TrainingData {
-  id?: string;
+  id: string;
   date: string;
+  source: string;
   activity_type: string;
   duration: number;
-  distance: number;
-  avg_heart_rate: number | null;
-  max_heart_rate: number | null;
-  avg_power: number | null;
-  max_power: number | null;
-  calories: number | null;
-  source?: string;
+  distance?: number;
+  avg_heart_rate?: number;
+  max_heart_rate?: number;
+  calories?: number;
+  perceived_exertion?: number;
   external_id?: string;
+  additional_metrics?: {
+    [key: string]: any;
+  };
 }
 
-// Define a simpler type for checking workout existence
-type WorkoutExistenceCheck = {
-  id: string;
+/**
+ * Saves a workout to the database
+ * 
+ * @param workoutData - The workout data to save
+ * @returns The saved workout data or null if there was an error
+ */
+export const saveWorkout = async (workoutData: WorkoutData): Promise<TrainingData | null> => {
+  try {
+    // Check if workout already exists to prevent duplicates
+    if (workoutData.external_id && await workoutExistsByExternalId(workoutData.external_id)) {
+      console.log(`Workout with external_id ${workoutData.external_id} already exists.`);
+      return null;
+    }
+
+    // Format workout data for Supabase
+    const formattedData = formatWorkoutData(workoutData);
+
+    // Insert the workout into the database
+    const { data, error } = await supabase
+      .from('training_data')
+      .insert(formattedData)
+      .select()
+      .single();
+
+    if (error) {
+      console.error('Error saving workout:', error);
+      return null;
+    }
+
+    return defineTrainingData(data);
+  } catch (error) {
+    console.error('Error in saveWorkout:', error);
+    return null;
+  }
 };
 
-export const getTrainingData = async (limit: number = 7): Promise<TrainingData[]> => {
+/**
+ * Retrieves training data for the specified number of days
+ * 
+ * @param days - The number of days of data to retrieve
+ * @returns Array of training data objects
+ */
+export const getTrainingData = async (days: number = 30): Promise<TrainingData[]> => {
   try {
+    // Calculate the date for "days" ago
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    const fromDate = date.toISOString().split('T')[0];
+
+    // Query the database for training data
     const { data, error } = await supabase
       .from('training_data')
       .select('*')
-      .order('date', { ascending: false })
-      .limit(limit);
+      .gte('date', fromDate)
+      .order('date', { ascending: false });
 
     if (error) {
       console.error('Error fetching training data:', error);
       return [];
     }
 
-    return data || [];
+    return data ? data.map(defineTrainingData) : [];
   } catch (error) {
     console.error('Error in getTrainingData:', error);
     return [];
   }
 };
 
-export const insertTrainingData = async (trainingData: TrainingData): Promise<string | null> => {
-  try {
-    const { data, error } = await supabase
-      .from('training_data')
-      .insert([trainingData])
-      .select();
-
-    if (error) {
-      console.error('Error inserting training data:', error);
-      return null;
-    }
-
-    return data?.[0]?.id || null;
-  } catch (error) {
-    console.error('Error in insertTrainingData:', error);
-    return null;
-  }
-};
-
-export const updateTrainingData = async (id: string, updates: Partial<TrainingData>): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('training_data')
-      .update(updates)
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error updating training data:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in updateTrainingData:', error);
-    return false;
-  }
-};
-
-export const deleteTrainingData = async (id: string): Promise<boolean> => {
-  try {
-    const { error } = await supabase
-      .from('training_data')
-      .delete()
-      .eq('id', id);
-
-    if (error) {
-      console.error('Error deleting training data:', error);
-      return false;
-    }
-
-    return true;
-  } catch (error) {
-    console.error('Error in deleteTrainingData:', error);
-    return false;
-  }
-};
-
-// Check if workout with external ID exists
+/**
+ * Checks if a workout with the specified external ID already exists
+ * 
+ * @param externalId - The external ID to check
+ * @returns True if the workout exists, false otherwise
+ */
 export const workoutExistsByExternalId = async (externalId: string): Promise<boolean> => {
   try {
-    const { data, error } = await supabase
+    // Use explicit typing to avoid excessive type recursion
+    const { data, error }: SupabaseQueryResult<WorkoutExistenceCheck[]> = await supabase
       .from('training_data')
       .select('id')
       .eq('external_id', externalId)
-      .limit(1) as { data: WorkoutExistenceCheck[] | null, error: any };
+      .limit(1);
 
     if (error) {
       console.error('Error checking workout existence:', error);
@@ -120,24 +122,31 @@ export const workoutExistsByExternalId = async (externalId: string): Promise<boo
   }
 };
 
-// Get training data by source
-export const getTrainingDataBySource = async (source: string, limit: number = 7): Promise<TrainingData[]> => {
+/**
+ * Gets training data from a specific source
+ * 
+ * @param source - The source to get data from
+ * @param limit - The maximum number of results to return
+ * @returns Array of training data objects
+ */
+export const getTrainingDataBySource = async (source: string, limit: number = 10): Promise<TrainingData[]> => {
   try {
-    const { data, error } = await supabase
+    // Use explicit typing to avoid excessive type recursion
+    const { data, error }: SupabaseQueryResult<TrainingData[]> = await supabase
       .from('training_data')
       .select('*')
       .eq('source', source)
       .order('date', { ascending: false })
-      .limit(limit) as { data: TrainingData[] | null, error: any };
+      .limit(limit);
 
     if (error) {
       console.error(`Error fetching ${source} training data:`, error);
       return [];
     }
 
-    return data || [];
+    return data ? data.map(defineTrainingData) : [];
   } catch (error) {
-    console.error(`Error in getTrainingDataBySource for ${source}:`, error);
+    console.error(`Error in getTrainingDataBySource (${source}):`, error);
     return [];
   }
 };

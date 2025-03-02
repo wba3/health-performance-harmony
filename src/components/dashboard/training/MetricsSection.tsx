@@ -15,15 +15,15 @@ interface MetricsSectionProps {
 
 const MetricsSection: React.FC<MetricsSectionProps> = ({ activity }) => {
   return (
-    <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mb-6">
+    <div className="grid grid-cols-2 gap-4 mb-6">
       <MetricDisplay
-        icon={<Dumbbell className="h-5 w-5 text-zinc-950" />}
+        icon={<Dumbbell className="h-5 w-5 text-primary" />}
         value={activity.activity_type || "Unknown"}
         label="Activity Type"
         trend={null}
       />
       <MetricDisplay
-        icon={<Timer className="h-5 w-5 text-zinc-950" />}
+        icon={<Timer className="h-5 w-5 text-primary" />}
         value={`${Math.floor(activity.duration / 60)}m`}
         label="Duration"
         trend={null}
