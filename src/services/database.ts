@@ -1,3 +1,4 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Sleep Data
@@ -239,13 +240,13 @@ export const getTrainingDataBySource = async (source: string, limit: number = 7)
 
 // AI Insights
 export interface AIInsight {
-  id: string;
+  id?: string;
   date: string;
   insight_type: string;
   content: string;
   is_read: boolean;
   rating: number | null;
-  created_at: string;
+  created_at?: string;
 }
 
 export const getAIInsights = async (limit: number = 10): Promise<AIInsight[]> => {
@@ -268,7 +269,7 @@ export const getAIInsights = async (limit: number = 10): Promise<AIInsight[]> =>
   }
 };
 
-export const upsertAIInsight = async (insight: Omit<AIInsight, 'id'>): Promise<string | null> => {
+export const insertAIInsight = async (insight: Omit<AIInsight, 'id' | 'created_at'>): Promise<string | null> => {
   try {
     const { data, error } = await supabase
       .from('ai_insights')
@@ -276,13 +277,13 @@ export const upsertAIInsight = async (insight: Omit<AIInsight, 'id'>): Promise<s
       .select();
     
     if (error) {
-      console.error('Error upserting AI insight:', error);
+      console.error('Error inserting AI insight:', error);
       return null;
     }
     
     return data?.[0]?.id || null;
   } catch (error) {
-    console.error('Error in upsertAIInsight:', error);
+    console.error('Error in insertAIInsight:', error);
     return null;
   }
 };
