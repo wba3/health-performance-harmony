@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PageTransition from "@/components/layout/PageTransition";
-import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2 } from "lucide-react";
+import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2, Info } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -352,6 +352,10 @@ const Settings: React.FC = () => {
     });
   };
 
+  // Extract domain for Strava settings
+  const appDomain = window.location.origin.replace(/^https?:\/\//, '');
+  const redirectUri = `${window.location.origin}/settings`;
+
   return (
     <PageTransition>
       <div className="container mx-auto px-4 pt-24 pb-16">
@@ -607,6 +611,31 @@ const Settings: React.FC = () => {
                           />
                         </div>
                       </div>
+                      
+                      <div className="p-4 bg-amber-50 border border-amber-200 rounded-md mt-2">
+                        <div className="flex items-start">
+                          <Info className="w-5 h-5 text-amber-600 mt-0.5 mr-2 flex-shrink-0" />
+                          <div>
+                            <h4 className="font-medium text-amber-800">Strava API Configuration</h4>
+                            <p className="text-sm text-amber-700 mt-1">
+                              In your Strava API settings (https://www.strava.com/settings/api), add:
+                            </p>
+                            <ol className="text-sm text-amber-700 mt-2 space-y-1 list-decimal pl-5">
+                              <li>
+                                <span className="font-medium">Authorization Domain:</span>{" "}
+                                <code className="bg-amber-100 px-1 py-0.5 rounded">{appDomain}</code>
+                                <span className="italic block text-xs">(Just the domain, no http:// or path)</span>
+                              </li>
+                              <li>
+                                <span className="font-medium">Authorization Callback Domain:</span>{" "}
+                                <code className="bg-amber-100 px-1 py-0.5 rounded">{redirectUri}</code>
+                                <span className="italic block text-xs">(The complete URL including http:// and path)</span>
+                              </li>
+                            </ol>
+                          </div>
+                        </div>
+                      </div>
+                      
                       <div className="flex items-center space-x-2">
                         <Switch 
                           id="strava-auto-import"
