@@ -15,7 +15,7 @@ const LandingPage: React.FC = () => {
 
   return (
     <PageTransition>
-      <div className="container mx-auto px-4 min-h-screen flex flex-col items-center justify-center bg-background dark:bg-[#020817] text-center py-16">
+      <div className="container mx-auto px-4 min-h-screen flex flex-col items-center justify-center bg-background text-center py-16">
         <div className="max-w-3xl mx-auto">
           <div className="flex justify-center gap-8 mb-8">
             <Activity className="h-10 w-10 text-blue-500" />
@@ -34,14 +34,14 @@ const LandingPage: React.FC = () => {
           
           <Link to="/login">
             <Button size="lg" className="px-8 mb-16">
-              Go to Dashboard <ArrowRight className="ml-2 h-4 w-4" />
+              Get Started <ArrowRight className="ml-2 h-4 w-4" />
             </Button>
           </Link>
           
           <div className="text-muted-foreground text-sm">
             <p>To get started, you'll need to:</p>
             <ol className="list-decimal text-left max-w-md mx-auto mt-4 space-y-2">
-              <li>Go to the <Link to="/settings" className="text-primary hover:underline">Settings page</Link> to add your API keys</li>
+              <li>Create an account or sign in</li>
               <li>Connect your Oura Ring account</li>
               <li>Connect your Strava account</li>
               <li>Add your OpenAI API key for AI coaching</li>
