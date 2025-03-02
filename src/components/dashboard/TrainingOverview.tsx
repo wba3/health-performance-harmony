@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { supabase } from "@/integrations/supabase/client";
 import { isStravaConnected } from "@/services/stravaAPI";
+import { isPelotonConnected } from "@/services/pelotonAPI";
 
 // Import the smaller components
 import EmptyStateCard from "./training/EmptyStateCard";
@@ -22,6 +23,7 @@ const TrainingOverview = () => {
   const [error, setError] = useState<string | null>(null);
   const [trainingData, setTrainingData] = useState<any[]>([]);
   const [stravaConnected, setStravaConnected] = useState<boolean>(false);
+  const [pelotonConnected, setPelotonConnected] = useState<boolean>(false);
   
   // Load training data
   useEffect(() => {
@@ -30,11 +32,15 @@ const TrainingOverview = () => {
       setError(null);
       
       try {
-        // Check Strava connection status
-        const connected = isStravaConnected();
-        setStravaConnected(connected);
+        // Check API connection status
+        const stravaStatus = isStravaConnected();
+        const pelotonStatus = isPelotonConnected();
         
-        console.log("Strava connected:", connected);
+        setStravaConnected(stravaStatus);
+        setPelotonConnected(pelotonStatus);
+        
+        console.log("Strava connected:", stravaStatus);
+        console.log("Peloton connected:", pelotonStatus);
         
         // Get last 7 days of training data
         const { data, error: fetchError } = await supabase
@@ -68,13 +74,17 @@ const TrainingOverview = () => {
     .map(activity => ({
       date: new Date(activity.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       calories: activity.calories || 0,
+      source: activity.source || 'unknown'
     }));
   
   // Get latest activity
   const latestActivity = trainingData[0] || null;
+  
+  // Check if any service is connected
+  const anyServiceConnected = stravaConnected || pelotonConnected;
 
   // No connection yet
-  if (!isLoading && !error && !stravaConnected && trainingData.length === 0) {
+  if (!isLoading && !error && !anyServiceConnected && trainingData.length === 0) {
     return (
       <EmptyStateCard 
         title="Training Overview" 
@@ -97,7 +107,7 @@ const TrainingOverview = () => {
   }
   
   // Show connected but no data
-  if (!isLoading && !error && stravaConnected && trainingData.length === 0) {
+  if (!isLoading && !error && anyServiceConnected && trainingData.length === 0) {
     return (
       <EmptyStateCard 
         title="Training Overview" 
@@ -132,11 +142,19 @@ const TrainingOverview = () => {
         <CardContent className="p-6">
           {latestActivity && (
             <>
-              <div className="flex items-center mb-4">
-                <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
-                <span className="text-sm text-muted-foreground">
-                  Latest Activity: {new Date(latestActivity.date).toLocaleDateString()}
-                </span>
+              <div className="flex items-center justify-between mb-4">
+                <div className="flex items-center">
+                  <Calendar className="mr-2 h-4 w-4 text-muted-foreground" />
+                  <span className="text-sm text-muted-foreground">
+                    Latest Activity: {new Date(latestActivity.date).toLocaleDateString()}
+                  </span>
+                </div>
+                {latestActivity.source && (
+                  <div className="text-xs px-2 py-1 rounded-full bg-zinc-100 text-zinc-800">
+                    {latestActivity.source === 'strava' ? 'Strava' : 
+                     latestActivity.source === 'peloton' ? 'Peloton' : 'Manual'}
+                  </div>
+                )}
               </div>
             
               <MetricsSection activity={latestActivity} />

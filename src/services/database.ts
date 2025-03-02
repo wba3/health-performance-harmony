@@ -113,6 +113,8 @@ export interface TrainingData {
   avg_power: number | null;
   max_power: number | null;
   calories: number | null;
+  source?: string;
+  external_id?: string;
 }
 
 export const getTrainingData = async (limit: number = 7): Promise<TrainingData[]> => {
@@ -192,6 +194,49 @@ export const deleteTrainingData = async (id: string): Promise<boolean> => {
   }
 };
 
+// Check if workout with external ID exists
+export const workoutExistsByExternalId = async (externalId: string): Promise<boolean> => {
+  try {
+    const { data, error } = await supabase
+      .from('training_data')
+      .select('id')
+      .eq('external_id', externalId)
+      .limit(1);
+
+    if (error) {
+      console.error('Error checking workout existence:', error);
+      return false;
+    }
+
+    return data && data.length > 0;
+  } catch (error) {
+    console.error('Error in workoutExistsByExternalId:', error);
+    return false;
+  }
+};
+
+// Get training data by source
+export const getTrainingDataBySource = async (source: string, limit: number = 7): Promise<TrainingData[]> => {
+  try {
+    const { data, error } = await supabase
+      .from('training_data')
+      .select('*')
+      .eq('source', source)
+      .order('date', { ascending: false })
+      .limit(limit);
+
+    if (error) {
+      console.error(`Error fetching ${source} training data:`, error);
+      return [];
+    }
+
+    return data || [];
+  } catch (error) {
+    console.error(`Error in getTrainingDataBySource for ${source}:`, error);
+    return [];
+  }
+};
+
 // AI Insights
 export interface AIInsight {
   id: string;
@@ -203,7 +248,6 @@ export interface AIInsight {
   created_at: string;
 }
 
-// Get AI insights
 export const getAIInsights = async (limit: number = 10): Promise<AIInsight[]> => {
   try {
     const { data, error } = await supabase
@@ -224,7 +268,6 @@ export const getAIInsights = async (limit: number = 10): Promise<AIInsight[]> =>
   }
 };
 
-// Insert or update AI insight
 export const upsertAIInsight = async (insight: Omit<AIInsight, 'id'>): Promise<string | null> => {
   try {
     const { data, error } = await supabase
@@ -244,7 +287,6 @@ export const upsertAIInsight = async (insight: Omit<AIInsight, 'id'>): Promise<s
   }
 };
 
-// Mark insight as read
 export const markInsightAsRead = async (id: string): Promise<boolean> => {
   try {
     const { error } = await supabase
@@ -264,7 +306,6 @@ export const markInsightAsRead = async (id: string): Promise<boolean> => {
   }
 };
 
-// Rate insight
 export const rateInsight = async (id: string, rating: number): Promise<boolean> => {
   try {
     const { error } = await supabase

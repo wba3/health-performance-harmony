@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from "react";
 import PageTransition from "@/components/layout/PageTransition";
-import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2, Info, Link } from "lucide-react";
+import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2, Info, Link, Bike } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -10,6 +10,7 @@ import { useToast } from "@/components/ui/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { initiateOuraAuth, handleOuraCallback, isOuraConnected, disconnectOura, importOuraSleepData } from "@/services/ouraAPI";
 import { initiateStravaAuth, handleStravaCallback, isStravaConnected, disconnectStrava, importStravaActivities, testStravaConnection } from "@/services/stravaAPI";
+import { connectToPeloton, disconnectPeloton, isPelotonConnected, testPelotonConnection, importPelotonWorkouts } from "@/services/pelotonAPI";
 
 const Settings: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -32,6 +33,14 @@ const Settings: React.FC = () => {
   const [processingStravaAuth, setProcessingStravaAuth] = useState<boolean>(false);
   const [importingStravaData, setImportingStravaData] = useState<boolean>(false);
 
+  // Peloton connection state
+  const [pelotonConnected, setPelotonConnected] = useState<boolean>(false);
+  const [pelotonUsername, setPelotonUsername] = useState<string>('');
+  const [pelotonPassword, setPelotonPassword] = useState<string>('');
+  const [pelotonAutoImport, setPelotonAutoImport] = useState<boolean>(false);
+  const [connectingToPeloton, setConnectingToPeloton] = useState<boolean>(false);
+  const [importingPelotonData, setImportingPelotonData] = useState<boolean>(false);
+
   // OpenAI API state
   const [openAIKey, setOpenAIKey] = useState<string>('');
   const [openAIModel, setOpenAIModel] = useState<string>('gpt-4o');
@@ -43,6 +52,7 @@ const Settings: React.FC = () => {
     const checkConnections = () => {
       setOuraConnected(isOuraConnected());
       setStravaConnected(isStravaConnected());
+      setPelotonConnected(isPelotonConnected());
       
       // Check OpenAI configuration
       const savedOpenAIKey = localStorage.getItem('openai_api_key');
@@ -59,6 +69,7 @@ const Settings: React.FC = () => {
     const savedOuraClientSecret = localStorage.getItem('ouraClientSecret');
     const savedStravaClientId = localStorage.getItem('stravaClientId');
     const savedStravaClientSecret = localStorage.getItem('stravaClientSecret');
+    const savedPelotonUsername = localStorage.getItem('peloton_username');
     
     if (savedOuraClientId) {
       setOuraClientId(savedOuraClientId);
@@ -74,6 +85,10 @@ const Settings: React.FC = () => {
     
     if (savedStravaClientSecret) {
       setStravaClientSecret(savedStravaClientSecret);
+    }
+    
+    if (savedPelotonUsername) {
+      setPelotonUsername(savedPelotonUsername);
     }
   }, []);
 
@@ -230,6 +245,69 @@ const Settings: React.FC = () => {
     initiateStravaAuth(stravaClientId);
   };
 
+  // Connect to Peloton
+  const handlePelotonConnect = async () => {
+    if (!pelotonUsername) {
+      toast({
+        title: "Username Required",
+        description: "Please enter your Peloton username or email.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    if (!pelotonPassword) {
+      toast({
+        title: "Password Required",
+        description: "Please enter your Peloton password.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setConnectingToPeloton(true);
+    
+    try {
+      const success = await connectToPeloton(pelotonUsername, pelotonPassword);
+      
+      if (success) {
+        setPelotonConnected(true);
+        const connectionWorking = await testPelotonConnection();
+        
+        if (connectionWorking) {
+          toast({
+            title: "Connected to Peloton",
+            description: "Your Peloton account has been successfully connected.",
+            variant: "default",
+          });
+        } else {
+          toast({
+            title: "Connection Warning",
+            description: "Connected to Peloton, but API test failed. You may need to check your credentials.",
+            variant: "warning",
+          });
+        }
+      } else {
+        toast({
+          title: "Connection Failed",
+          description: "Could not connect to Peloton. Please check your credentials and try again.",
+          variant: "destructive",
+        });
+      }
+    } catch (error) {
+      console.error("Error connecting to Peloton:", error);
+      toast({
+        title: "Connection Error",
+        description: "An error occurred during the connection process. Please try again later.",
+        variant: "destructive",
+      });
+    } finally {
+      setConnectingToPeloton(false);
+      // Clear password field
+      setPelotonPassword('');
+    }
+  };
+
   // Disconnect from Oura
   const handleOuraDisconnect = () => {
     disconnectOura();
@@ -248,6 +326,17 @@ const Settings: React.FC = () => {
     toast({
       title: "Disconnected",
       description: "Your Strava account has been disconnected.",
+      variant: "default",
+    });
+  };
+
+  // Disconnect from Peloton
+  const handlePelotonDisconnect = () => {
+    disconnectPeloton();
+    setPelotonConnected(false);
+    toast({
+      title: "Disconnected",
+      description: "Your Peloton account has been disconnected.",
       variant: "default",
     });
   };
@@ -315,6 +404,39 @@ const Settings: React.FC = () => {
       });
     } finally {
       setImportingStravaData(false);
+    }
+  };
+
+  // Import Peloton workouts
+  const handleImportPelotonWorkouts = async () => {
+    if (!pelotonConnected) {
+      toast({
+        title: "Not Connected",
+        description: "Please connect to Peloton before importing workouts.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setImportingPelotonData(true);
+    
+    try {
+      const importCount = await importPelotonWorkouts(30);
+      
+      toast({
+        title: "Workouts Imported",
+        description: `Successfully imported ${importCount} Peloton workouts.`,
+        variant: "default",
+      });
+    } catch (error) {
+      console.error("Import error:", error);
+      toast({
+        title: "Import Failed",
+        description: "Could not import Peloton workouts. Please try again.",
+        variant: "destructive",
+      });
+    } finally {
+      setImportingPelotonData(false);
     }
   };
 
@@ -658,25 +780,6 @@ const Settings: React.FC = () => {
                         </div>
                       </div>
                       
-                      <div className="mt-3 p-4 bg-blue-50 border border-blue-200 rounded-md">
-                        <div className="flex items-start">
-                          <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
-                          <div>
-                            <h4 className="font-medium text-blue-800">Troubleshooting Connection</h4>
-                            <ul className="text-sm text-blue-700 mt-2 space-y-1 list-disc pl-5">
-                              <li>Make sure you've saved your changes in the Strava API settings page</li>
-                              <li>Try using an incognito/private browsing window</li>
-                              <li>Clear your browser's cache and cookies</li>
-                              <li>Make sure you're signed in with the correct Google account linked to Strava</li>
-                              <li>Double check your Client ID and Client Secret are entered correctly</li>
-                              <li>Verify the Authorization Callback Domain matches exactly what's shown above</li>
-                              <li>Make sure you have granted all the requested permissions during authorization</li>
-                              <li>After saving API settings in Strava, wait a few minutes before trying again</li>
-                            </ul>
-                          </div>
-                        </div>
-                      </div>
-                      
                       <div className="flex items-center space-x-2">
                         <Switch 
                           id="strava-auto-import"
@@ -692,6 +795,125 @@ const Settings: React.FC = () => {
                           onCheckedChange={setStravaPowerData}
                         />
                         <Label htmlFor="strava-power-data">Include power data</Label>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+                
+                {/* Peloton Connection */}
+                <div className="rounded-lg border shadow-sm">
+                  <div className="flex items-center justify-between p-6">
+                    <div className="flex items-center space-x-4">
+                      <div className="w-12 h-12 rounded-full bg-[#E74A33] flex items-center justify-center">
+                        <Bike className="w-6 h-6 text-white" />
+                      </div>
+                      <div>
+                        <h3 className="font-medium">Peloton</h3>
+                        <div className="flex items-center">
+                          <p className="text-sm text-muted-foreground mr-2">Indoor cycling and fitness data</p>
+                          {pelotonConnected && (
+                            <span className="inline-flex items-center text-xs text-green-600">
+                              <CheckCircle className="w-3 h-3 mr-1" />
+                              Connected
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                    {pelotonConnected ? (
+                      <div className="flex gap-2">
+                        <Button 
+                          variant="outline" 
+                          onClick={handleImportPelotonWorkouts}
+                          disabled={importingPelotonData}
+                        >
+                          {importingPelotonData ? (
+                            <>
+                              <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                              Importing...
+                            </>
+                          ) : (
+                            "Import Workouts"
+                          )}
+                        </Button>
+                        <Button 
+                          variant="outline" 
+                          className="text-red-500 hover:text-red-600"
+                          onClick={handlePelotonDisconnect}
+                        >
+                          <XCircle className="w-4 h-4 mr-1" />
+                          Disconnect
+                        </Button>
+                      </div>
+                    ) : (
+                      <Button 
+                        variant="outline" 
+                        className="flex items-center gap-2"
+                        onClick={handlePelotonConnect}
+                        disabled={connectingToPeloton}
+                      >
+                        {connectingToPeloton ? (
+                          <>
+                            <Loader2 className="w-4 h-4 animate-spin" />
+                            <span>Connecting...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span>Connect</span>
+                            <ExternalLink className="w-4 h-4" />
+                          </>
+                        )}
+                      </Button>
+                    )}
+                  </div>
+                  <Separator />
+                  <div className="p-6">
+                    <div className="space-y-4">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                        <div className="space-y-2">
+                          <Label htmlFor="peloton-username">Username or Email</Label>
+                          <Input 
+                            id="peloton-username" 
+                            placeholder="Enter username or email"
+                            value={pelotonUsername}
+                            onChange={(e) => setPelotonUsername(e.target.value)}
+                          />
+                        </div>
+                        <div className="space-y-2">
+                          <Label htmlFor="peloton-password">Password</Label>
+                          <Input 
+                            id="peloton-password" 
+                            type="password" 
+                            placeholder="Enter password"
+                            value={pelotonPassword}
+                            onChange={(e) => setPelotonPassword(e.target.value)}
+                          />
+                        </div>
+                      </div>
+                      
+                      <div className="p-4 bg-blue-50 border border-blue-200 rounded-md">
+                        <div className="flex items-start">
+                          <Info className="w-5 h-5 text-blue-600 mt-0.5 mr-2 flex-shrink-0" />
+                          <div>
+                            <h4 className="font-medium text-blue-800">Peloton Integration Notes</h4>
+                            <ul className="text-sm text-blue-700 mt-2 space-y-1 list-disc pl-5">
+                              <li>This integration uses the unofficial Peloton API</li>
+                              <li>Your credentials are only stored locally in your browser</li>
+                              <li>We only import basic workout data like duration, distance, and calories</li>
+                              <li>If Peloton changes their API, this integration might stop working</li>
+                              <li>Please use this feature with consideration for Peloton's terms of service</li>
+                            </ul>
+                          </div>
+                        </div>
+                      </div>
+                      
+                      <div className="flex items-center space-x-2">
+                        <Switch 
+                          id="peloton-auto-import"
+                          checked={pelotonAutoImport}
+                          onCheckedChange={setPelotonAutoImport}
+                        />
+                        <Label htmlFor="peloton-auto-import">Auto-import new workouts</Label>
                       </div>
                     </div>
                   </div>
