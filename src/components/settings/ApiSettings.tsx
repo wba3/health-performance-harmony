@@ -1,8 +1,9 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { useSearchParams } from "react-router-dom";
 import { Key } from "lucide-react";
 import { OuraIntegration } from "./OuraIntegration";
-import { StravaIntegration } from "./StravaIntegration";
+import { StravaIntegration } from "./strava/StravaIntegration";
 import PelotonIntegration from "./PelotonIntegration";
 import OpenAIIntegration from "./OpenAIIntegration";
 
