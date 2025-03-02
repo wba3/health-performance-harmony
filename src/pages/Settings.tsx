@@ -1,4 +1,3 @@
-
 import React, { useState, useEffect } from "react";
 import PageTransition from "@/components/layout/PageTransition";
 import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2, Info, Link } from "lucide-react";
@@ -649,8 +648,10 @@ const Settings: React.FC = () => {
                                 )}
                               </li>
                               <li>
-                                <div className="font-medium">Exactly registered Redirect URI must include:</div>
-                                <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all select-all">{redirectUri}</code>
+                                <div className="font-medium">Requested Scopes:</div>
+                                <div className="bg-amber-100 px-2 py-1 rounded mt-1">
+                                  ✓ Read permission
+                                </div>
                               </li>
                             </ol>
                           </div>
@@ -663,13 +664,14 @@ const Settings: React.FC = () => {
                           <div>
                             <h4 className="font-medium text-blue-800">Troubleshooting Connection</h4>
                             <ul className="text-sm text-blue-700 mt-2 space-y-1 list-disc pl-5">
+                              <li>Make sure you've saved your changes in the Strava API settings page</li>
                               <li>Try using an incognito/private browsing window</li>
                               <li>Clear your browser's cache and cookies</li>
                               <li>Make sure you're signed in with the correct Google account linked to Strava</li>
-                              <li>Double check your Strava API settings match <strong>exactly</strong> what's shown above</li>
+                              <li>Double check your Client ID and Client Secret are entered correctly</li>
+                              <li>Verify the Authorization Callback Domain matches exactly what's shown above</li>
+                              <li>Make sure you have granted all the requested permissions during authorization</li>
                               <li>After saving API settings in Strava, wait a few minutes before trying again</li>
-                              <li>If you get a "Bad Request" error mentioning "redirect_uri", verify the settings above are exact</li>
-                              <li>Remember: Strava does not allow dashes in the domain name field</li>
                             </ul>
                           </div>
                         </div>

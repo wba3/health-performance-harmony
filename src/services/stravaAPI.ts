@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
@@ -111,18 +110,13 @@ export const handleStravaCallback = async (
     }
     
     console.log('Exchanging code for tokens with client ID:', clientId);
-    console.log('Using redirect URI for token exchange:', REDIRECT_URI);
+    
+    // Add more detailed logging before token exchange
+    console.log('Full code length:', code.length);
+    console.log('Using client ID:', clientId);
+    console.log('Using redirect URI:', REDIRECT_URI);
     
     // Exchange authorization code for tokens
-    console.log('POST request to:', STRAVA_TOKEN_URL);
-    console.log('Request body:', {
-      client_id: clientId,
-      client_secret: '[REDACTED]',
-      code: code.substring(0, 5) + '...',
-      grant_type: 'authorization_code',
-      redirect_uri: REDIRECT_URI
-    });
-    
     const tokenResponse = await fetch(STRAVA_TOKEN_URL, {
       method: 'POST',
       headers: {
@@ -133,116 +127,54 @@ export const handleStravaCallback = async (
         client_secret: clientSecret,
         code: code,
         grant_type: 'authorization_code',
-        redirect_uri: REDIRECT_URI
       }),
     });
     
     console.log('Token exchange response status:', tokenResponse.status);
     
-    if (!tokenResponse.ok) {
-      let errorText = '';
-      let errorData: any = {};
+    // Handle response - add more detailed error handling
+    const responseText = await tokenResponse.text();
+    console.log('Token exchange raw response:', responseText);
+    
+    let responseData;
+    try {
+      // Try to parse the response as JSON
+      responseData = JSON.parse(responseText);
+      console.log('Response data parsed successfully');
+    } catch (e) {
+      console.error('Failed to parse response as JSON:', e);
       
-      try {
-        errorData = await tokenResponse.json();
-        errorText = JSON.stringify(errorData);
-        console.error('Detailed error response:', errorData);
-        
-        // Log specific fields for debugging
-        if (errorData.errors && Array.isArray(errorData.errors)) {
-          console.error('Error fields:', errorData.errors.map((e: any) => 
-            `${e.resource || ''}.${e.field || ''}: ${e.code || ''}`).join(', '));
-        }
-      } catch (e) {
-        errorText = await tokenResponse.text();
-        console.error('Error response (plain text):', errorText);
-      }
+      // Non-JSON response usually indicates a server error
+      toast({
+        title: "Strava API Error",
+        description: "Received invalid response from Strava. Please try again later.",
+        variant: "destructive",
+      });
       
-      console.error('Strava token exchange failed:', tokenResponse.statusText, errorText);
+      return false;
+    }
+    
+    // Check for error field in the response
+    if (responseData.error) {
+      console.error('Strava API error:', responseData.error);
       
-      // Check for redirect_uri errors in the response with additional checks for domain issues
-      const hasRedirectUriError = errorText.includes('redirect_uri') && 
-                               (errorText.includes('invalid') || 
-                                errorText.includes('mismatch') || 
-                                errorText.includes('doesn\'t match'));
-      
-      // Special handling for domain with dashes
-      const hasDashesInDomain = APP_DOMAIN.includes('-');
-      
-      if (hasRedirectUriError) {
-        // If we have dashes in our domain, show specific error message about that
-        if (hasDashesInDomain) {
-          toast({
-            title: "Strava Domain Configuration Error",
-            description: `Strava doesn't allow dashes in domain names. In your Strava API settings:
-            
-            1. Enter "${STRAVA_DOMAIN}" (without dashes) as the Authorization Callback Domain
-            2. Make sure you've registered the exact "${REDIRECT_URI}" as an allowed redirect URI
-            
-            After updating, try connecting again.`,
-            variant: "destructive",
-          });
-          
-          console.error('DOMAIN FORMAT ERROR: Strava does not accept dashes in domains.');
-          console.error(`Original domain "${APP_DOMAIN}" contains dashes. Use "${STRAVA_DOMAIN}" instead.`);
-        } else {
-          toast({
-            title: "Strava Redirect URI Configuration Error",
-            description: `Please verify EXACTLY these settings in your Strava API Dashboard:
-            
-            1. Authorization Callback Domain: ${STRAVA_DOMAIN} (only the domain, no http://)
-            2. Make sure you've registered the redirect URI ${REDIRECT_URI}
-            
-            After updating, try connecting again.`,
-            variant: "destructive",
-          });
-        }
-        return false;
-      }
-      
-      // Handle domain format error - when they're putting full URL in the domain field
-      if (errorText.includes('must be just a domain') || errorText.includes('no slashes or paths')) {
+      // Handle specific error types
+      if (responseData.error === 'invalid_grant') {
         toast({
-          title: "Strava Domain Setting Error",
-          description: `In Strava API settings:
-          - "Authorization Callback Domain" must ONLY contain "${STRAVA_DOMAIN}" (no http:// or paths)
-          - Dashes are not allowed - use the domain without any dashes`,
+          title: "Authorization Error",
+          description: "Invalid authorization code or expired code. Please try connecting again.",
           variant: "destructive",
         });
-        console.error('AUTH DOMAIN ERROR: In Strava settings, use ONLY this domain:', STRAVA_DOMAIN);
-        return false;
-      }
-      
-      // Handle Google authentication specific errors
-      if (errorText.toLowerCase().includes('google') || 
-          errorText.toLowerCase().includes('authentication failed') ||
-          errorText.toLowerCase().includes('accounts.google.com')) {
+      } else if (responseData.error === 'invalid_client') {
         toast({
-          title: "Google Authentication Error",
-          description: "There was an issue authenticating with Google through Strava. Please try using an incognito window or ensure you're using the same Google account that's linked to your Strava account.",
-          variant: "warning",
-        });
-        console.error('Google authentication through Strava failed');
-        return false;
-      }
-      
-      // General error handling based on HTTP status
-      if (tokenResponse.status === 400) {
-        toast({
-          title: "Authorization Failed",
-          description: "Invalid authorization code or credentials. Please try connecting again.",
-          variant: "destructive",
-        });
-      } else if (tokenResponse.status === 401) {
-        toast({
-          title: "Authorization Failed",
-          description: "Invalid Strava API credentials. Please check your Client ID and Secret.",
+          title: "Client Error",
+          description: "Invalid Strava API Client ID or Secret. Please check your credentials.",
           variant: "destructive",
         });
       } else {
         toast({
-          title: "Connection Error",
-          description: `Strava API error: ${tokenResponse.status} ${tokenResponse.statusText}. Please verify your API settings and try again.`,
+          title: "Strava API Error",
+          description: responseData.error_description || "An error occurred while connecting to Strava.",
           variant: "destructive",
         });
       }
@@ -250,16 +182,29 @@ export const handleStravaCallback = async (
       return false;
     }
     
-    const data = await tokenResponse.json();
-    console.log('Token exchange successful, received tokens');
-    
-    // Save tokens to localStorage
-    saveTokens(data.access_token, data.refresh_token, data.expires_at);
-    
-    // Clear state after successful auth
-    localStorage.removeItem('strava_auth_state');
-    
-    return true;
+    // Success case - we got valid tokens
+    if (responseData.access_token && responseData.refresh_token && responseData.expires_at) {
+      console.log('Token exchange successful, saving tokens');
+      
+      // Save tokens to localStorage
+      saveTokens(responseData.access_token, responseData.refresh_token, responseData.expires_at);
+      
+      // Clear state after successful auth
+      localStorage.removeItem('strava_auth_state');
+      
+      return true;
+    } else {
+      console.error('Unexpected response format - missing required token fields');
+      console.log('Response data:', responseData);
+      
+      toast({
+        title: "Connection Error",
+        description: "Received incomplete data from Strava. Please try again.",
+        variant: "destructive",
+      });
+      
+      return false;
+    }
   } catch (error) {
     console.error('Error during Strava token exchange:', error);
     
