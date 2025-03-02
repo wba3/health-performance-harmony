@@ -1,5 +1,2 @@
-
-// Re-export all database services for backward compatibility
-export * from './sleepService';
+// Re-export all types and functions from trainingService
 export * from './trainingService';
-export * from './insightsService';

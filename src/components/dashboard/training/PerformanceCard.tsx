@@ -3,7 +3,7 @@ import React from "react";
 import { Zap, ArrowUpRight } from "lucide-react";
 import DashboardCard from "@/components/dashboard/DashboardCard";
 import MetricDisplay from "@/components/ui/MetricDisplay";
-import { TrainingData } from "@/services/database";
+import { TrainingData } from "@/services/database/trainingService";
 
 interface PerformanceCardProps {
   latestActivity: TrainingData | null;

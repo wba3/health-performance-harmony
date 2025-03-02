@@ -2,7 +2,7 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
 import PageTransition from "@/components/layout/PageTransition";
-import { getTrainingData } from "@/services/database";
+import { getTrainingData } from "@/services/database/trainingService";
 import { isStravaConnected } from "@/services/stravaAPI";
 import EmptyStateCard from "@/components/dashboard/training/EmptyStateCard";
 import ErrorStateCard from "@/components/dashboard/training/ErrorStateCard";

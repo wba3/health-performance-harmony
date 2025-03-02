@@ -2,7 +2,7 @@
 import React from "react";
 import { BarChart3 } from "lucide-react";
 import DashboardCard from "@/components/dashboard/DashboardCard";
-import { TrainingData } from "@/services/database";
+import { TrainingData } from "@/services/database/trainingService";
 
 interface WeeklyProgressCardProps {
   trainingData: TrainingData[] | undefined;

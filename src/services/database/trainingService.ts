@@ -1,14 +1,31 @@
 
-// Fixing the Type instantiation error in trainingService.ts
-// This approach uses explicit typing to avoid excessive type recursion
-
 import { supabase } from "@/integrations/supabase/client";
-import { defineTrainingData, formatWorkoutData } from "@/utils/formatters";
-import { WorkoutData } from "@/integrations/supabase/types";
 
 // Define simplified types to prevent deep instantiation
 type WorkoutExistenceCheck = { id: string };
-type SupabaseQueryResult<T> = { data: T | null, error: any };
+
+// Use a more specific typed response to avoid deep type instantiation
+interface SupabaseQueryResult<T> {
+  data: T | null;
+  error: any;
+}
+
+// Define a WorkoutData interface since it's missing from types
+export interface WorkoutData {
+  external_id?: string;
+  date: string;
+  source: string;
+  activity_type: string;
+  duration: number;
+  distance?: number;
+  avg_heart_rate?: number;
+  max_heart_rate?: number;
+  avg_power?: number;
+  max_power?: number;
+  calories?: number;
+  perceived_exertion?: number;
+  additional_metrics?: Record<string, any>;
+}
 
 export interface TrainingData {
   id: string;
@@ -19,13 +36,40 @@ export interface TrainingData {
   distance?: number;
   avg_heart_rate?: number;
   max_heart_rate?: number;
+  avg_power?: number;
+  max_power?: number;
   calories?: number;
   perceived_exertion?: number;
   external_id?: string;
-  additional_metrics?: {
-    [key: string]: any;
-  };
+  additional_metrics?: Record<string, any>;
 }
+
+// Define formatters since they're missing
+const formatWorkoutData = (workoutData: WorkoutData): Record<string, any> => {
+  return {
+    ...workoutData,
+    additional_metrics: workoutData.additional_metrics || {},
+  };
+};
+
+const defineTrainingData = (data: any): TrainingData => {
+  return {
+    id: data.id,
+    date: data.date,
+    source: data.source || 'manual',
+    activity_type: data.activity_type,
+    duration: data.duration,
+    distance: data.distance,
+    avg_heart_rate: data.avg_heart_rate,
+    max_heart_rate: data.max_heart_rate,
+    avg_power: data.avg_power,
+    max_power: data.max_power,
+    calories: data.calories,
+    perceived_exertion: data.perceived_exertion,
+    external_id: data.external_id,
+    additional_metrics: data.additional_metrics || {},
+  };
+};
 
 /**
  * Saves a workout to the database
@@ -103,12 +147,14 @@ export const getTrainingData = async (days: number = 30): Promise<TrainingData[]
  */
 export const workoutExistsByExternalId = async (externalId: string): Promise<boolean> => {
   try {
-    // Use explicit typing to avoid excessive type recursion
-    const { data, error }: SupabaseQueryResult<WorkoutExistenceCheck[]> = await supabase
+    // Use as type assertion to avoid deep type instantiation
+    const response = await supabase
       .from('training_data')
       .select('id')
       .eq('external_id', externalId)
       .limit(1);
+    
+    const { data, error } = response as unknown as SupabaseQueryResult<WorkoutExistenceCheck[]>;
 
     if (error) {
       console.error('Error checking workout existence:', error);
@@ -131,13 +177,15 @@ export const workoutExistsByExternalId = async (externalId: string): Promise<boo
  */
 export const getTrainingDataBySource = async (source: string, limit: number = 10): Promise<TrainingData[]> => {
   try {
-    // Use explicit typing to avoid excessive type recursion
-    const { data, error }: SupabaseQueryResult<TrainingData[]> = await supabase
+    // Use as type assertion to avoid deep type instantiation
+    const response = await supabase
       .from('training_data')
       .select('*')
       .eq('source', source)
       .order('date', { ascending: false })
       .limit(limit);
+    
+    const { data, error } = response as unknown as SupabaseQueryResult<any[]>;
 
     if (error) {
       console.error(`Error fetching ${source} training data:`, error);
