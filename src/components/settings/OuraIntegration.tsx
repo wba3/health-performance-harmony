@@ -1,209 +1,247 @@
 
-import React, { useState, useEffect } from "react";
-import { Badge } from "@/components/ui/badge";
+import React, { useState } from "react";
+import { Moon, CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import {
-  Card,
-  CardContent,
-  CardDescription,
-  CardFooter,
-  CardHeader,
-  CardTitle,
-} from "@/components/ui/card";
-import { AlertCircle, ArrowUpRight, Check } from "lucide-react";
-import { Alert, AlertDescription } from "@/components/ui/alert";
-import { toast } from "@/components/ui/use-toast";
-import { isOuraConnected, clearOuraCredentials } from "@/services/ouraAPI";
+import { Switch } from "@/components/ui/switch";
+import { Separator } from "@/components/ui/separator";
+import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import { useToast } from "@/components/ui/use-toast";
+import { 
+  initiateOuraAuth, 
+  handleOuraCallback, 
+  isOuraConnected, 
+  disconnectOura, 
+  importOuraSleepData 
+} from "@/services/ouraAPI";
 
 interface OuraIntegrationProps {
   processingAuth: boolean;
-  setProcessingAuth: React.Dispatch<React.SetStateAction<boolean>>;
+  setProcessingAuth: (processing: boolean) => void;
 }
 
 const OuraIntegration: React.FC<OuraIntegrationProps> = ({ 
   processingAuth, 
   setProcessingAuth 
 }) => {
-  const [connected, setConnected] = useState<boolean>(false);
-  const [isLoading, setIsLoading] = useState<boolean>(true);
+  const { toast } = useToast();
+  
+  // Oura connection state
+  const [connected, setConnected] = useState<boolean>(isOuraConnected());
+  const [clientId, setClientId] = useState<string>(localStorage.getItem('ouraClientId') || '');
+  const [clientSecret, setClientSecret] = useState<string>(localStorage.getItem('ouraClientSecret') || '');
+  const [autoSync, setAutoSync] = useState<boolean>(false);
+  const [importingData, setImportingData] = useState<boolean>(false);
 
-  useEffect(() => {
-    const checkConnectionStatus = async () => {
-      setIsLoading(true);
-      try {
-        // Fix: await the promise and set the boolean result
-        const status = await isOuraConnected();
-        setConnected(status);
-      } catch (error) {
-        console.error("Error checking Oura connection:", error);
-        setConnected(false);
-      } finally {
-        setIsLoading(false);
-      }
-    };
-
-    checkConnectionStatus();
-  }, []);
-
+  // Connect to Oura
   const handleConnect = () => {
-    // Client ID should be stored as an environment variable
-    const clientId = process.env.REACT_APP_OURA_CLIENT_ID || "YOUR_OURA_CLIENT_ID";
-    const redirectUri = encodeURIComponent(
-      `${window.location.origin}/settings`
-    );
-    const scope = encodeURIComponent(
-      "daily email heartrate personal profile session tag workout"
-    );
+    if (!clientId) {
+      toast({
+        title: "Client ID Required",
+        description: "Please enter your Oura API Client ID.",
+        variant: "destructive",
+      });
+      return;
+    }
     
-    // Save that we're in the Oura auth flow
+    // Save client credentials to use after OAuth redirect
     localStorage.setItem('ouraClientId', clientId);
+    if (clientSecret) {
+      localStorage.setItem('ouraClientSecret', clientSecret);
+    }
     
-    // Redirect to Oura auth page
-    window.location.href = `https://cloud.ouraring.com/oauth/authorize?client_id=${clientId}&redirect_uri=${redirectUri}&scope=${scope}&response_type=code`;
+    initiateOuraAuth(clientId);
   };
 
-  const handleDisconnect = async () => {
-    setIsLoading(true);
-    try {
-      await clearOuraCredentials();
-      setConnected(false);
+  // Disconnect from Oura
+  const handleDisconnect = () => {
+    disconnectOura();
+    setConnected(false);
+    toast({
+      title: "Disconnected",
+      description: "Your Oura Ring account has been disconnected.",
+      variant: "default",
+    });
+  };
+
+  // Import Oura sleep data
+  const handleImportData = async () => {
+    if (!connected || !clientId || !clientSecret) {
       toast({
-        title: "Oura Ring Disconnected",
-        description: "Successfully disconnected your Oura Ring account.",
+        title: "Not Connected",
+        description: "Please connect to Oura before importing data.",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    setImportingData(true);
+    
+    try {
+      const importCount = await importOuraSleepData(clientId, clientSecret, 30);
+      
+      toast({
+        title: "Data Imported",
+        description: `Successfully imported ${importCount} days of sleep data.`,
+        variant: "default",
       });
     } catch (error) {
-      console.error("Error disconnecting Oura:", error);
+      console.error("Import error:", error);
       toast({
-        title: "Disconnection Failed",
-        description: "Failed to disconnect your Oura Ring account. Please try again.",
+        title: "Import Failed",
+        description: "Could not import sleep data. Please try again.",
         variant: "destructive",
       });
     } finally {
-      setIsLoading(false);
+      setImportingData(false);
     }
   };
 
-  // Check for auth code in URL after Oura auth redirect
-  useEffect(() => {
-    if (processingAuth) {
-      const urlParams = new URLSearchParams(window.location.search);
-      const authCode = urlParams.get("code");
-      
-      if (authCode) {
-        // Process Oura auth code
-        console.log("Processing Oura auth code:", authCode);
-        
-        // Here you would call an API to exchange the code for tokens
-        // For now, we'll simulate success
-        setTimeout(() => {
+  // Handle Oura OAuth callback
+  const processOAuthCallback = (code: string, state: string) => {
+    setProcessingAuth(true);
+    
+    handleOuraCallback(code, state, clientId, clientSecret)
+      .then(success => {
+        if (success) {
           setConnected(true);
           toast({
-            title: "Oura Ring Connected",
-            description: "Successfully connected your Oura Ring account.",
+            title: "Connected to Oura",
+            description: "Your Oura Ring account has been successfully connected.",
+            variant: "default",
           });
-          setProcessingAuth(false);
-          
-          // Clear URL parameters after processing
-          window.history.replaceState({}, document.title, window.location.pathname);
-        }, 2000);
-      } else {
+        } else {
+          toast({
+            title: "Connection Failed",
+            description: "Could not connect to Oura. Please try again.",
+            variant: "destructive",
+          });
+        }
+      })
+      .catch(err => {
+        console.error("Error handling Oura OAuth callback:", err);
+        toast({
+          title: "Connection Error",
+          description: err.message || "An error occurred during the connection process.",
+          variant: "destructive",
+        });
+      })
+      .finally(() => {
         setProcessingAuth(false);
-      }
-    }
-  }, [processingAuth, setProcessingAuth]);
+        
+        // Clear URL parameters after processing
+        window.history.replaceState({}, document.title, window.location.pathname);
+      });
+  };
 
   return (
-    <Card className="mb-6">
-      <CardHeader className="pb-3">
-        <div className="flex items-center justify-between">
-          <CardTitle className="text-lg font-medium">Oura Ring</CardTitle>
-          {connected ? (
-            <Badge className="bg-green-500 hover:bg-green-600">
-              <Check className="mr-1 h-3 w-3" /> Connected
-            </Badge>
-          ) : (
-            <Badge variant="outline">Not Connected</Badge>
-          )}
-        </div>
-        <CardDescription>
-          Connect your Oura Ring to sync sleep and recovery data.
-        </CardDescription>
-      </CardHeader>
-      <CardContent className="pb-3">
-        {isLoading || processingAuth ? (
-          <div className="flex justify-center py-4">
-            <div className="h-6 w-6 animate-spin rounded-full border-b-2 border-primary"></div>
+    <div className="rounded-lg border shadow-sm">
+      <div className="flex items-center justify-between p-6">
+        <div className="flex items-center space-x-4">
+          <div className="w-12 h-12 rounded-full bg-black flex items-center justify-center">
+            <Moon className="w-6 h-6 text-white" />
           </div>
-        ) : connected ? (
-          <div className="space-y-4">
-            <Alert className="bg-muted/50">
-              <AlertCircle className="h-4 w-4" />
-              <AlertDescription>
-                Your Oura Ring is connected and syncing your sleep data.
-              </AlertDescription>
-            </Alert>
-            <div className="grid gap-2 md:grid-cols-3">
-              <div className="rounded-lg border bg-card p-3 shadow-sm">
-                <div className="flex flex-col space-y-1.5">
-                  <div className="text-xs font-medium text-muted-foreground">Last Synced</div>
-                  <div className="text-lg font-semibold">Today</div>
-                </div>
-              </div>
-              <div className="rounded-lg border bg-card p-3 shadow-sm">
-                <div className="flex flex-col space-y-1.5">
-                  <div className="text-xs font-medium text-muted-foreground">Sleep Records</div>
-                  <div className="text-lg font-semibold">30</div>
-                </div>
-              </div>
-              <div className="rounded-lg border bg-card p-3 shadow-sm">
-                <div className="flex flex-col space-y-1.5">
-                  <div className="text-xs font-medium text-muted-foreground">Avg Sleep Score</div>
-                  <div className="text-lg font-semibold">85</div>
-                </div>
-              </div>
+          <div>
+            <h3 className="font-medium">Oura Ring</h3>
+            <div className="flex items-center">
+              <p className="text-sm text-muted-foreground mr-2">Sleep and recovery data</p>
+              {connected && (
+                <span className="inline-flex items-center text-xs text-green-600">
+                  <CheckCircle className="w-3 h-3 mr-1" />
+                  Connected
+                </span>
+              )}
             </div>
           </div>
-        ) : (
-          <Alert className="bg-muted/50">
-            <AlertCircle className="h-4 w-4" />
-            <AlertDescription>
-              Connect your Oura Ring to track sleep quality, recovery metrics, and heart rate variability.
-            </AlertDescription>
-          </Alert>
-        )}
-      </CardContent>
-      <CardFooter className="flex justify-between pt-3">
+        </div>
         {connected ? (
-          <>
-            <a
-              href="https://cloud.ouraring.com/dashboard"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-sm text-muted-foreground hover:text-foreground flex items-center"
+          <div className="flex gap-2">
+            <Button 
+              variant="outline" 
+              onClick={handleImportData}
+              disabled={importingData}
             >
-              Open Oura Cloud
-              <ArrowUpRight className="ml-1 h-3 w-3" />
-            </a>
-            <Button
-              variant="outline"
+              {importingData ? (
+                <>
+                  <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                  Importing...
+                </>
+              ) : (
+                "Import Data"
+              )}
+            </Button>
+            <Button 
+              variant="outline" 
+              className="text-red-500 hover:text-red-600"
               onClick={handleDisconnect}
-              disabled={isLoading || processingAuth}
             >
+              <XCircle className="w-4 h-4 mr-1" />
               Disconnect
             </Button>
-          </>
+          </div>
         ) : (
-          <Button
+          <Button 
+            variant="outline" 
+            className="flex items-center gap-2"
             onClick={handleConnect}
-            className="w-full"
-            disabled={isLoading || processingAuth}
+            disabled={processingAuth}
           >
-            Connect Oura Ring
+            {processingAuth ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>Connecting...</span>
+              </>
+            ) : (
+              <>
+                <span>Connect</span>
+                <ExternalLink className="w-4 h-4" />
+              </>
+            )}
           </Button>
         )}
-      </CardFooter>
-    </Card>
+      </div>
+      <Separator />
+      <div className="p-6">
+        <div className="space-y-4">
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div className="space-y-2">
+              <Label htmlFor="oura-client-id">Client ID</Label>
+              <Input 
+                id="oura-client-id" 
+                placeholder="Enter client ID" 
+                value={clientId}
+                onChange={(e) => {
+                  setClientId(e.target.value);
+                  localStorage.setItem('ouraClientId', e.target.value);
+                }}
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="oura-client-secret">Client Secret</Label>
+              <Input 
+                id="oura-client-secret" 
+                type="password" 
+                placeholder="••••••••••••••••"
+                value={clientSecret}
+                onChange={(e) => {
+                  setClientSecret(e.target.value);
+                  localStorage.setItem('ouraClientSecret', e.target.value);
+                }}
+              />
+            </div>
+          </div>
+          <div className="flex items-center space-x-2">
+            <Switch 
+              id="oura-auto-sync" 
+              checked={autoSync}
+              onCheckedChange={setAutoSync}
+            />
+            <Label htmlFor="oura-auto-sync">Auto-sync sleep data daily</Label>
+          </div>
+        </div>
+      </div>
+    </div>
   );
 };
 
-export default OuraIntegration;
+export { OuraIntegration, type OuraIntegrationProps };

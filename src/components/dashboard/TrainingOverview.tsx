@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import { 
   Calendar, 
@@ -31,23 +32,15 @@ const TrainingOverview = () => {
       setError(null);
       
       try {
-        // Check API connection status - Fix: Handle promises properly
-        const checkConnections = async () => {
-          try {
-            const stravaStatus = await isStravaConnected();
-            const pelotonStatus = await isPelotonConnected();
-            
-            setStravaConnected(stravaStatus);
-            setPelotonConnected(pelotonStatus);
-            
-            console.log("Strava connected:", stravaStatus);
-            console.log("Peloton connected:", pelotonStatus);
-          } catch (err) {
-            console.error("Error checking connections:", err);
-          }
-        };
+        // Check API connection status
+        const stravaStatus = isStravaConnected();
+        const pelotonStatus = isPelotonConnected();
         
-        await checkConnections();
+        setStravaConnected(stravaStatus);
+        setPelotonConnected(pelotonStatus);
+        
+        console.log("Strava connected:", stravaStatus);
+        console.log("Peloton connected:", pelotonStatus);
         
         // Get last 7 days of training data
         const { data, error: fetchError } = await supabase
@@ -73,7 +66,7 @@ const TrainingOverview = () => {
     
     fetchTrainingData();
   }, []);
-
+  
   // Format data for chart
   const chartData = trainingData
     .slice()

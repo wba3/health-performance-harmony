@@ -78,54 +78,6 @@ export type Database = {
         }
         Relationships: []
       }
-      oura_credentials: {
-        Row: {
-          access_token: string
-          created_at: string | null
-          expires_at: number
-          id: number
-          refresh_token: string
-        }
-        Insert: {
-          access_token: string
-          created_at?: string | null
-          expires_at: number
-          id: number
-          refresh_token: string
-        }
-        Update: {
-          access_token?: string
-          created_at?: string | null
-          expires_at?: number
-          id?: number
-          refresh_token?: string
-        }
-        Relationships: []
-      }
-      peloton_credentials: {
-        Row: {
-          created_at: string | null
-          id: number
-          session_id: string
-          user_id: string
-          username: string | null
-        }
-        Insert: {
-          created_at?: string | null
-          id: number
-          session_id: string
-          user_id: string
-          username?: string | null
-        }
-        Update: {
-          created_at?: string | null
-          id?: number
-          session_id?: string
-          user_id?: string
-          username?: string | null
-        }
-        Relationships: []
-      }
       sleep_data: {
         Row: {
           created_at: string | null

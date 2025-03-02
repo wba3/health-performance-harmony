@@ -1,160 +1,37 @@
 
-import { supabase } from "@/integrations/supabase/client";
-import { toast } from "@/components/ui/use-toast";
-import { TrainingData, insertTrainingData } from "@/services/database/trainingService";
+/**
+ * Unofficial Peloton API integration
+ * Based on: https://github.com/ostranme/peloton-postman
+ */
 
-// Type definitions for Peloton credentials
-interface PelotonCredentials {
-  id: number;
-  session_id: string;
-  user_id: string;
-  username?: string;
-  created_at?: string;
-}
+// Store auth tokens in localStorage
+const PELOTON_SESSION_KEY = 'peloton_session';
+const PELOTON_USER_ID_KEY = 'peloton_user_id';
+const PELOTON_USERNAME_KEY = 'peloton_username';
+
+// Base API URL
+const PELOTON_API_URL = 'https://api.onepeloton.com';
 
 /**
- * Check if Peloton is connected by looking for valid credentials
+ * Check if user is connected to Peloton
  */
-export const isPelotonConnected = async (): Promise<boolean> => {
-  try {
-    // For now, use localStorage instead of the database
-    const credentials = localStorage.getItem('peloton_credentials');
-    return !!credentials;
-    
-    // Once database is working, use this instead:
-    /*
-    const { data, error } = await supabase
-      .from('peloton_credentials')
-      .select('*')
-      .limit(1);
-      
-    if (error) {
-      console.error('Error checking Peloton connection:', error);
-      return false;
-    }
-    
-    return !!data && data.length > 0;
-    */
-  } catch (error) {
-    console.error('Error in isPelotonConnected:', error);
-    return false;
-  }
+export const isPelotonConnected = (): boolean => {
+  const session = localStorage.getItem(PELOTON_SESSION_KEY);
+  const userId = localStorage.getItem(PELOTON_USER_ID_KEY);
+  return !!session && !!userId;
 };
 
 /**
- * Save Peloton credentials to storage
+ * Connect to Peloton with username and password
  */
-export const savePelotonCredentials = async (
-  sessionId: string, 
-  userId: string,
-  username?: string
+export const connectToPeloton = async (
+  username: string, 
+  password: string
 ): Promise<boolean> => {
   try {
-    // For now, use localStorage instead of the database
-    const credentials = {
-      id: 1,
-      session_id: sessionId,
-      user_id: userId,
-      username: username || '',
-      created_at: new Date().toISOString()
-    };
+    console.log('Connecting to Peloton...');
     
-    localStorage.setItem('peloton_credentials', JSON.stringify(credentials));
-    return true;
-    
-    // Once database is working, use this instead:
-    /*
-    const { data, error } = await supabase
-      .from('peloton_credentials')
-      .upsert({ 
-        id: 1, // Using 1 as the ID for single-user mode
-        session_id: sessionId,
-        user_id: userId,
-        username: username
-      })
-      .select();
-    
-    if (error) {
-      console.error('Error saving Peloton credentials:', error);
-      return false;
-    }
-    
-    return !!data;
-    */
-  } catch (error) {
-    console.error('Error in savePelotonCredentials:', error);
-    return false;
-  }
-};
-
-/**
- * Get stored Peloton credentials
- */
-export const getPelotonCredentials = async (): Promise<PelotonCredentials | null> => {
-  try {
-    // For now, use localStorage instead of the database
-    const credentialsJson = localStorage.getItem('peloton_credentials');
-    if (!credentialsJson) return null;
-    
-    return JSON.parse(credentialsJson) as PelotonCredentials;
-    
-    // Once database is working, use this instead:
-    /*
-    const { data, error } = await supabase
-      .from('peloton_credentials')
-      .select('*')
-      .eq('id', 1) // Using 1 as the ID for single-user mode
-      .single();
-    
-    if (error) {
-      console.error('Error getting Peloton credentials:', error);
-      return null;
-    }
-    
-    return data as PelotonCredentials;
-    */
-  } catch (error) {
-    console.error('Error in getPelotonCredentials:', error);
-    return null;
-  }
-};
-
-/**
- * Clear Peloton credentials
- */
-export const clearPelotonCredentials = async (): Promise<boolean> => {
-  try {
-    // For now, use localStorage instead of the database
-    localStorage.removeItem('peloton_credentials');
-    return true;
-    
-    // Once database is working, use this instead:
-    /*
-    const { error } = await supabase
-      .from('peloton_credentials')
-      .delete()
-      .eq('id', 1); // Using 1 as the ID for single-user mode
-    
-    if (error) {
-      console.error('Error clearing Peloton credentials:', error);
-      return false;
-    }
-    
-    return true;
-    */
-  } catch (error) {
-    console.error('Error in clearPelotonCredentials:', error);
-    return false;
-  }
-};
-
-/**
- * Login to Peloton
- */
-export const loginToPeloton = async (username: string, password: string): Promise<boolean> => {
-  try {
-    // Make API call to Peloton login endpoint
-    const response = await fetch('https://api.onepeloton.com/auth/login', {
+    const response = await fetch(`${PELOTON_API_URL}/auth/login`, {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -167,54 +44,90 @@ export const loginToPeloton = async (username: string, password: string): Promis
 
     if (!response.ok) {
       const errorData = await response.json();
-      throw new Error(errorData.message || 'Failed to login to Peloton');
+      console.error('Peloton login error:', errorData);
+      throw new Error(errorData.message || 'Login failed');
     }
 
     const data = await response.json();
     
-    // Save credentials
-    await savePelotonCredentials(
-      data.session_id,
-      data.user_id,
-      data.username
-    );
+    // Store session token and user ID
+    localStorage.setItem(PELOTON_SESSION_KEY, data.session_id);
+    localStorage.setItem(PELOTON_USER_ID_KEY, data.user_id);
+    localStorage.setItem(PELOTON_USERNAME_KEY, username);
     
+    console.log('Connected to Peloton successfully');
     return true;
   } catch (error) {
-    console.error('Error logging in to Peloton:', error);
-    toast({
-      title: "Peloton Login Failed",
-      description: error instanceof Error ? error.message : "Unknown error occurred",
-      variant: "destructive",
-    });
+    console.error('Error connecting to Peloton:', error);
     return false;
   }
 };
 
 /**
- * Get recent Peloton workouts
+ * Disconnect from Peloton
  */
-export const getRecentWorkouts = async (limit: number = 10): Promise<any[]> => {
-  try {
-    const credentials = await getPelotonCredentials();
-    if (!credentials) {
-      throw new Error('Not connected to Peloton');
-    }
+export const disconnectPeloton = (): void => {
+  localStorage.removeItem(PELOTON_SESSION_KEY);
+  localStorage.removeItem(PELOTON_USER_ID_KEY);
+  localStorage.removeItem(PELOTON_USERNAME_KEY);
+};
 
-    // Make API call to get workouts
+/**
+ * Get Peloton auth headers
+ */
+const getPelotonHeaders = (): HeadersInit => {
+  const session = localStorage.getItem(PELOTON_SESSION_KEY);
+  
+  return {
+    'Content-Type': 'application/json',
+    'Cookie': `peloton_session_id=${session}`,
+  };
+};
+
+/**
+ * Test Peloton connection
+ */
+export const testPelotonConnection = async (): Promise<boolean> => {
+  if (!isPelotonConnected()) {
+    return false;
+  }
+  
+  try {
+    const userId = localStorage.getItem(PELOTON_USER_ID_KEY);
+    const response = await fetch(`${PELOTON_API_URL}/api/user/${userId}`, {
+      headers: getPelotonHeaders(),
+    });
+    
+    return response.ok;
+  } catch (error) {
+    console.error('Error testing Peloton connection:', error);
+    return false;
+  }
+};
+
+/**
+ * Get user's Peloton workouts
+ */
+export const getPelotonWorkouts = async (
+  limit: number = 10
+): Promise<any[]> => {
+  if (!isPelotonConnected()) {
+    return [];
+  }
+  
+  try {
+    const userId = localStorage.getItem(PELOTON_USER_ID_KEY);
     const response = await fetch(
-      `https://api.onepeloton.com/api/user/${credentials.user_id}/workouts?limit=${limit}`,
+      `${PELOTON_API_URL}/api/user/${userId}/workouts?limit=${limit}&page=0`, 
       {
-        headers: {
-          'Cookie': `peloton_session_id=${credentials.session_id}`,
-        },
+        headers: getPelotonHeaders(),
       }
     );
-
+    
     if (!response.ok) {
-      throw new Error('Failed to fetch Peloton workouts');
+      throw new Error('Failed to fetch workouts');
     }
-
+    
     const data = await response.json();
     return data.data || [];
   } catch (error) {
@@ -224,95 +137,129 @@ export const getRecentWorkouts = async (limit: number = 10): Promise<any[]> => {
 };
 
 /**
- * Import Peloton workouts to the database
+ * Get workout details by ID
  */
-export const importPelotonWorkouts = async (days: number = 30): Promise<number> => {
+export const getWorkoutDetails = async (workoutId: string): Promise<any> => {
+  if (!isPelotonConnected()) {
+    return null;
+  }
+  
   try {
-    // Get recent workouts
-    const workouts = await getRecentWorkouts(50); // Get more than we need to filter by date
+    const response = await fetch(
+      `${PELOTON_API_URL}/api/workout/${workoutId}`,
+      {
+        headers: getPelotonHeaders(),
+      }
+    );
     
-    if (!workouts || workouts.length === 0) {
+    if (!response.ok) {
+      throw new Error('Failed to fetch workout details');
+    }
+    
+    return await response.json();
+  } catch (error) {
+    console.error('Error fetching workout details:', error);
+    return null;
+  }
+};
+
+/**
+ * Import Peloton workouts into database
+ */
+export const importPelotonWorkouts = async (
+  limit: number = 30
+): Promise<number> => {
+  if (!isPelotonConnected()) {
+    throw new Error('Not connected to Peloton');
+  }
+
+  try {
+    // Fetch workouts from Peloton API
+    const workouts = await getPelotonWorkouts(limit);
+    
+    if (!workouts.length) {
       return 0;
     }
     
-    // Filter workouts by date
-    const cutoffDate = new Date();
-    cutoffDate.setDate(cutoffDate.getDate() - days);
-    
-    const recentWorkouts = workouts.filter(workout => {
-      const workoutDate = new Date(workout.created_at * 1000);
-      return workoutDate >= cutoffDate;
-    });
-    
-    // Transform and insert each workout
+    // Import successful workouts
     let importCount = 0;
     
-    for (const workout of recentWorkouts) {
+    for (const workout of workouts) {
       try {
-        // Get workout details
-        const details = await getWorkoutDetails(workout.id);
-        if (!details) continue;
+        // Get detailed workout data
+        const workoutDetails = await getWorkoutDetails(workout.id);
         
-        // Format the workout data
-        const workoutData = {
+        if (!workoutDetails) {
+          continue;
+        }
+        
+        // Transform data for our database
+        const trainingData = {
           date: new Date(workout.created_at * 1000).toISOString().split('T')[0],
-          activity_type: details.ride ? details.ride.type : 'Peloton Workout',
-          duration: Math.round(workout.end_time - workout.start_time),
-          distance: details.summary && details.summary.distance ? details.summary.distance.value : null,
-          calories: details.summary && details.summary.calories ? details.summary.calories.value : null,
-          avg_heart_rate: details.summary && details.summary.avg_heart_rate ? details.summary.avg_heart_rate.value : null,
-          max_heart_rate: details.summary && details.summary.max_heart_rate ? details.summary.max_heart_rate.value : null,
-          avg_power: details.summary && details.summary.avg_power ? details.summary.avg_power.value : null,
-          max_power: details.summary && details.summary.max_power ? details.summary.max_power.value : null,
-          source: 'peloton'
+          activity_type: workout.fitness_discipline,
+          duration: Math.round(workout.ride.duration / 60), // Convert to minutes
+          distance: workoutDetails.ride.distance ? parseFloat(workoutDetails.ride.distance.toFixed(2)) : 0,
+          avg_heart_rate: workoutDetails.metrics?.heart_rate?.average_value || null,
+          max_heart_rate: workoutDetails.metrics?.heart_rate?.max_value || null,
+          avg_power: workoutDetails.metrics?.output?.average_value || null,
+          max_power: workoutDetails.metrics?.output?.max_value || null,
+          calories: workoutDetails.ride.calories || null,
+          source: 'peloton',
+          external_id: workout.id
         };
         
-        // Insert the workout data
-        const result = await insertTrainingData(workoutData);
+        // Import to database using our database service
+        const { data, error } = await fetch('/api/import-peloton-workout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ workout: trainingData }),
+        }).then(res => res.json());
         
-        if (result.data) {
-          importCount++;
+        if (error) {
+          console.error('Error importing workout:', error);
+          continue;
         }
+        
+        importCount++;
       } catch (err) {
-        console.error('Error importing Peloton workout:', err);
+        console.error('Error processing workout:', err);
+        continue;
       }
     }
     
     return importCount;
   } catch (error) {
     console.error('Error importing Peloton workouts:', error);
-    return 0;
+    throw error;
   }
 };
 
 /**
- * Get details for a specific workout
+ * Get user's Peloton profile info
  */
-const getWorkoutDetails = async (workoutId: string): Promise<any> => {
+export const getPelotonProfile = async (): Promise<any> => {
+  if (!isPelotonConnected()) {
+    return null;
+  }
+  
   try {
-    const credentials = await getPelotonCredentials();
-    if (!credentials) {
-      throw new Error('Not connected to Peloton');
-    }
-
-    // Make API call to get workout details
+    const userId = localStorage.getItem(PELOTON_USER_ID_KEY);
     const response = await fetch(
-      `https://api.onepeloton.com/api/workout/${workoutId}`,
+      `${PELOTON_API_URL}/api/user/${userId}`,
       {
-        headers: {
-          'Cookie': `peloton_session_id=${credentials.session_id}`,
-        },
+        headers: getPelotonHeaders(),
       }
     );
-
+    
     if (!response.ok) {
-      throw new Error('Failed to fetch workout details');
+      throw new Error('Failed to fetch profile');
     }
-
-    const data = await response.json();
-    return data;
+    
+    return await response.json();
   } catch (error) {
-    console.error('Error fetching workout details:', error);
+    console.error('Error fetching Peloton profile:', error);
     return null;
   }
 };

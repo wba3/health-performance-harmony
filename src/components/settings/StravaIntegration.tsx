@@ -1,3 +1,4 @@
+
 import React, { useState } from "react";
 import { Info, CheckCircle, XCircle, Loader2, ExternalLink, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
@@ -14,8 +15,6 @@ import {
   importStravaActivities, 
   testStravaConnection 
 } from "@/services/stravaAPI";
-import { useAuth } from "@/hooks/useAuth";
-import { Navigate } from "react-router-dom";
 
 interface StravaIntegrationProps {
   processingAuth: boolean;
@@ -27,7 +26,6 @@ const StravaIntegration: React.FC<StravaIntegrationProps> = ({
   setProcessingAuth 
 }) => {
   const { toast } = useToast();
-  const { isAuthenticated } = useAuth();
   
   // Strava connection state
   const [connected, setConnected] = useState<boolean>(isStravaConnected());
@@ -36,10 +34,6 @@ const StravaIntegration: React.FC<StravaIntegrationProps> = ({
   const [autoImport, setAutoImport] = useState<boolean>(false);
   const [powerData, setPowerData] = useState<boolean>(false);
   const [importingData, setImportingData] = useState<boolean>(false);
-
-  if (!isAuthenticated) {
-    return <Navigate to="/login" />;
-  }
 
   // Extract domain for Strava settings
   const appDomain = window.location.origin.replace(/^https?:\/\//, '').split('/')[0];
