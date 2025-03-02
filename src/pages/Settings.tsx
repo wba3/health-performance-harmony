@@ -1,6 +1,7 @@
+
 import React, { useState, useEffect } from "react";
 import PageTransition from "@/components/layout/PageTransition";
-import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2, Info } from "lucide-react";
+import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2, Info, Link } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { Separator } from "@/components/ui/separator";
@@ -616,20 +617,35 @@ const Settings: React.FC = () => {
                         <div className="flex items-start">
                           <Info className="w-5 h-5 text-amber-600 mt-0.5 mr-2 flex-shrink-0" />
                           <div>
-                            <h4 className="font-medium text-amber-800">Strava API Configuration</h4>
+                            <h4 className="font-medium text-amber-800 flex items-center">
+                              Strava API Configuration 
+                              <a 
+                                href="https://www.strava.com/settings/api" 
+                                target="_blank" 
+                                rel="noopener noreferrer"
+                                className="ml-2 text-xs inline-flex items-center text-amber-700 underline"
+                              >
+                                <Link className="w-3 h-3 mr-1" />
+                                Open Strava API Settings
+                              </a>
+                            </h4>
                             <p className="text-sm text-amber-700 mt-1">
-                              In your Strava API settings (https://www.strava.com/settings/api), add:
+                              In your Strava API settings, add <strong>EXACTLY</strong> the following:
                             </p>
-                            <ol className="text-sm text-amber-700 mt-2 space-y-1 list-decimal pl-5">
+                            <ol className="text-sm text-amber-700 mt-2 space-y-2 list-decimal pl-5">
                               <li>
-                                <span className="font-medium">Authorization Domain:</span>{" "}
-                                <code className="bg-amber-100 px-1 py-0.5 rounded">{appDomain}</code>
-                                <span className="italic block text-xs">(Just the domain, no http:// or path)</span>
+                                <div className="font-medium">Authorization Domain:</div>
+                                <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all">{appDomain}</code>
+                                <div className="italic text-xs mt-1">
+                                  ⚠️ Use <strong>ONLY</strong> this domain (no http:// or path)
+                                </div>
                               </li>
                               <li>
-                                <span className="font-medium">Authorization Callback Domain:</span>{" "}
-                                <code className="bg-amber-100 px-1 py-0.5 rounded">{redirectUri}</code>
-                                <span className="italic block text-xs">(The complete URL including http:// and path)</span>
+                                <div className="font-medium">Authorization Callback Domain:</div>
+                                <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all">{redirectUri}</code>
+                                <div className="italic text-xs mt-1">
+                                  ⚠️ Include the <strong>complete</strong> URL with path
+                                </div>
                               </li>
                             </ol>
                           </div>
