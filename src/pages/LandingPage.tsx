@@ -7,7 +7,11 @@ import { ArrowRight, Activity, Moon, Dumbbell, BrainCircuit } from "lucide-react
 import { useAuth } from "@/hooks/useAuth";
 
 const LandingPage: React.FC = () => {
-  const { isAuthenticated } = useAuth();
+  const { isAuthenticated, isLoading } = useAuth();
+
+  if (isLoading) {
+    return <div className="flex items-center justify-center min-h-screen">Loading...</div>;
+  }
 
   if (isAuthenticated) {
     return <Navigate to="/dashboard" />;
@@ -15,7 +19,7 @@ const LandingPage: React.FC = () => {
 
   return (
     <PageTransition>
-      <div className="container mx-auto px-4 min-h-screen flex flex-col items-center justify-center bg-background text-center py-16">
+      <div className="container mx-auto px-4 min-h-screen flex flex-col items-center justify-center bg-background text-foreground text-center py-16">
         <div className="max-w-3xl mx-auto">
           <div className="flex justify-center gap-8 mb-8">
             <Activity className="h-10 w-10 text-blue-500" />
