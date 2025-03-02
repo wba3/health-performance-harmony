@@ -1,3 +1,4 @@
+
 import React, { useState, useEffect } from "react";
 import PageTransition from "@/components/layout/PageTransition";
 import { Settings as SettingsIcon, User2, Lock, Bell, ExternalLink, Laptop, Moon, Key, CheckCircle, XCircle, Loader2, Info, Link } from "lucide-react";
@@ -354,6 +355,8 @@ const Settings: React.FC = () => {
 
   // Extract domain for Strava settings
   const appDomain = window.location.origin.replace(/^https?:\/\//, '').split('/')[0];
+  // Create a Strava-compatible domain (without dashes) for their Authorization Callback Domain field
+  const stravaDomain = appDomain.replace(/-/g, '');
   const redirectUri = `${window.location.origin}/settings`;
 
   return (
@@ -633,18 +636,21 @@ const Settings: React.FC = () => {
                             </p>
                             <ol className="text-sm text-amber-700 mt-2 space-y-2 list-decimal pl-5">
                               <li>
-                                <div className="font-medium">Authorization Domain:</div>
-                                <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all select-all">{appDomain}</code>
+                                <div className="font-medium">Authorization Callback Domain:</div>
+                                <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all select-all">{stravaDomain}</code>
                                 <div className="italic text-xs mt-1">
-                                  ⚠️ Use <strong>ONLY</strong> this domain (no http://, www, or slashes)
+                                  ⚠️ Important: <strong>DO NOT</strong> include http://, www, or slashes
                                 </div>
+                                {appDomain !== stravaDomain && (
+                                  <div className="bg-red-100 p-2 rounded mt-1 text-red-700">
+                                    <strong>IMPORTANT:</strong> Strava doesn't allow dashes (-) in this field. 
+                                    Use the domain <strong>without dashes</strong> as shown above.
+                                  </div>
+                                )}
                               </li>
                               <li>
-                                <div className="font-medium">Redirect URI:</div>
+                                <div className="font-medium">Exactly registered Redirect URI must include:</div>
                                 <code className="bg-amber-100 px-2 py-1 rounded block mt-1 break-all select-all">{redirectUri}</code>
-                                <div className="italic text-xs mt-1">
-                                  ⚠️ Include the <strong>COMPLETE</strong> URL exactly as shown above
-                                </div>
                               </li>
                             </ol>
                           </div>
@@ -663,6 +669,7 @@ const Settings: React.FC = () => {
                               <li>Double check your Strava API settings match <strong>exactly</strong> what's shown above</li>
                               <li>After saving API settings in Strava, wait a few minutes before trying again</li>
                               <li>If you get a "Bad Request" error mentioning "redirect_uri", verify the settings above are exact</li>
+                              <li>Remember: Strava does not allow dashes in the domain name field</li>
                             </ul>
                           </div>
                         </div>

@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
@@ -11,6 +12,10 @@ const REDIRECT_URI = `${window.location.origin}/settings`;
 // Extract just the domain for Strava domain registration
 // This removes protocol (http:// or https://) and any trailing slashes or paths
 const APP_DOMAIN = window.location.origin.replace(/^https?:\/\//, '').split('/')[0];
+
+// For Strava specifically, we need to sanitize the domain to remove dashes
+// as Strava's Authorization Callback Domain field doesn't accept them
+const STRAVA_DOMAIN = APP_DOMAIN.replace(/-/g, '');
 
 // Token storage keys
 const STRAVA_ACCESS_TOKEN_KEY = 'strava_access_token';
@@ -31,8 +36,9 @@ export const initiateStravaAuth = (clientId: string) => {
     }
     
     console.log('Initiating Strava auth with client ID:', clientId);
-    console.log('App domain (for Authorization Domain setting):', APP_DOMAIN);
-    console.log('Full redirect URI (for full Redirect URI setting):', REDIRECT_URI);
+    console.log('App domain (original):', APP_DOMAIN);
+    console.log('Strava-compatible domain (no dashes):', STRAVA_DOMAIN);
+    console.log('Full redirect URI (for redirect settings):', REDIRECT_URI);
     
     // Generate a random state for security - using a more secure method
     const array = new Uint32Array(8);
@@ -154,34 +160,43 @@ export const handleStravaCallback = async (
       
       console.error('Strava token exchange failed:', tokenResponse.statusText, errorText);
       
-      // Check for redirect_uri errors in the response - with more specific error handling
+      // Check for redirect_uri errors in the response with additional checks for domain issues
       const hasRedirectUriError = errorText.includes('redirect_uri') && 
-                                (errorText.includes('invalid') || 
-                                 errorText.includes('mismatch') || 
-                                 errorText.includes('doesn\'t match'));
+                               (errorText.includes('invalid') || 
+                                errorText.includes('mismatch') || 
+                                errorText.includes('doesn\'t match'));
       
-      if (hasRedirectUriError || 
-          (errorData && 
-           typeof errorData === 'object' && 
-           'errors' in errorData && 
-           Array.isArray((errorData as any).errors) && 
-           (errorData as any).errors.some((e: any) => 
-             e.field === 'redirect_uri' && e.code === 'invalid'))) {
-        
-        toast({
-          title: "Strava Redirect URI Configuration Error",
-          description: `Please verify EXACTLY these settings in your Strava API Dashboard:
-           
-           1. Authorization Domain: ${APP_DOMAIN} (only the domain, no http://)
-           2. Redirect URI: ${REDIRECT_URI} (the complete URL)
-           
-           After updating, try connecting again.`,
-          variant: "destructive",
-        });
-        
-        console.error('REDIRECT URI ERROR: The settings in Strava must match EXACTLY:');
-        console.error('1. Authorization Domain should be just:', APP_DOMAIN);
-        console.error('2. Redirect URI should be exactly:', REDIRECT_URI);
+      // Special handling for domain with dashes
+      const hasDashesInDomain = APP_DOMAIN.includes('-');
+      
+      if (hasRedirectUriError) {
+        // If we have dashes in our domain, show specific error message about that
+        if (hasDashesInDomain) {
+          toast({
+            title: "Strava Domain Configuration Error",
+            description: `Strava doesn't allow dashes in domain names. In your Strava API settings:
+            
+            1. Enter "${STRAVA_DOMAIN}" (without dashes) as the Authorization Callback Domain
+            2. Make sure you've registered the exact "${REDIRECT_URI}" as an allowed redirect URI
+            
+            After updating, try connecting again.`,
+            variant: "destructive",
+          });
+          
+          console.error('DOMAIN FORMAT ERROR: Strava does not accept dashes in domains.');
+          console.error(`Original domain "${APP_DOMAIN}" contains dashes. Use "${STRAVA_DOMAIN}" instead.`);
+        } else {
+          toast({
+            title: "Strava Redirect URI Configuration Error",
+            description: `Please verify EXACTLY these settings in your Strava API Dashboard:
+            
+            1. Authorization Callback Domain: ${STRAVA_DOMAIN} (only the domain, no http://)
+            2. Make sure you've registered the redirect URI ${REDIRECT_URI}
+            
+            After updating, try connecting again.`,
+            variant: "destructive",
+          });
+        }
         return false;
       }
       
@@ -189,12 +204,12 @@ export const handleStravaCallback = async (
       if (errorText.includes('must be just a domain') || errorText.includes('no slashes or paths')) {
         toast({
           title: "Strava Domain Setting Error",
-          description: `In Strava API settings (https://www.strava.com/settings/api):
-          - "Authorization Domain" must ONLY contain "${APP_DOMAIN}" (no http:// or paths)
-          - The full URL "${REDIRECT_URI}" goes in "Redirect URI"`,
+          description: `In Strava API settings:
+          - "Authorization Callback Domain" must ONLY contain "${STRAVA_DOMAIN}" (no http:// or paths)
+          - Dashes are not allowed - use the domain without any dashes`,
           variant: "destructive",
         });
-        console.error('AUTH DOMAIN ERROR: In Strava settings, use ONLY this domain:', APP_DOMAIN);
+        console.error('AUTH DOMAIN ERROR: In Strava settings, use ONLY this domain:', STRAVA_DOMAIN);
         return false;
       }
       
