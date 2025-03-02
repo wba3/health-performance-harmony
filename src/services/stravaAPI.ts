@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
@@ -339,12 +338,32 @@ export const fetchAthleteProfile = async (clientId: string, clientSecret: string
     if (!response.ok) {
       const errorText = await response.text();
       console.error('Strava API error:', response.statusText, errorText);
+      
+      // Check for Google authentication-related errors
+      if (errorText.toLowerCase().includes('google') || 
+          errorText.toLowerCase().includes('authentication') || 
+          errorText.toLowerCase().includes('accounts.google.com')) {
+        throw new Error('Google authentication error. Please try again with the Google account linked to your Strava.');
+      }
+      
       throw new Error(`Strava API error: ${response.status} ${response.statusText}`);
     }
     
     return await response.json();
   } catch (error) {
     console.error('Error fetching Strava profile:', error);
+    
+    // Special handling for Google authentication errors
+    if (error instanceof Error && 
+        (error.message.includes('google') || 
+         error.message.includes('accounts.google.com'))) {
+      toast({
+        title: "Google Authentication Issue",
+        description: "There was a problem with Google authentication. Make sure you're using the same Google account that's linked to your Strava account.",
+        variant: "warning",
+      });
+    }
+    
     throw error;
   }
 };
