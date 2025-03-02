@@ -1,4 +1,3 @@
-
 import React, { useEffect, useState } from "react";
 import DashboardCard from "./DashboardCard";
 import { BedDouble, ArrowRight, Moon, Activity, Heart, AlertCircle, Calendar } from "lucide-react";
@@ -23,19 +22,14 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
   const [ouraConnected, setOuraConnected] = useState<boolean>(false);
 
   useEffect(() => {
-    // Check if Oura is connected
     setOuraConnected(isOuraConnected());
     
     const fetchSleepData = async () => {
       try {
-        // Get the most recent sleep data entries (limit to 7 for chart)
         const data = await getSleepData(7);
         
         if (data.length > 0) {
-          // Latest sleep data for the metrics
           setSleepData(data[0]);
-          
-          // Recent sleep data for the chart (reverse to show oldest to newest)
           setRecentSleepData(data.reverse());
         }
         
@@ -50,17 +44,14 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
     fetchSleepData();
   }, []);
 
-  // Format data for the chart
   const chartData = recentSleepData.map(item => ({
     date: item.date,
     score: item.sleep_score,
-    // Converting minutes to hours for better visualization
     total: Math.round((item.total_sleep / 60) * 10) / 10,
     deep: Math.round((item.deep_sleep / 60) * 10) / 10,
     rem: Math.round((item.rem_sleep / 60) * 10) / 10,
   }));
 
-  // Calculate trend for sleep score (compare current to previous if available)
   const calculateScoreTrend = () => {
     if (recentSleepData.length < 2) return null;
     
@@ -71,24 +62,22 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
     if (diff === 0) return null;
     
     return {
-      direction: diff > 0 ? "up" : "down",
+      direction: diff > 0 ? "up" as const : "down" as const,
       value: `${Math.abs(diff)}% from yesterday`
     };
   };
 
   const scoreTrend = calculateScoreTrend();
 
-  // Fallback data for empty state or loading
   const placeholderData = {
     sleep_score: 85,
-    total_sleep: 452, // 7h 32m
-    deep_sleep: 105, // 1h 45m
-    rem_sleep: 130, // 2h 10m
+    total_sleep: 452,
+    deep_sleep: 105,
+    rem_sleep: 130,
     resting_hr: 58,
     hrv: 48,
   };
 
-  // Use real data if available, otherwise use placeholder
   const displayData = sleepData || placeholderData;
 
   return (
@@ -130,7 +119,6 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
         </div>
       ) : (
         <div className="space-y-4">
-          {/* Sleep metrics grid */}
           <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
             <MetricDisplay
               label="Sleep Score"
@@ -169,7 +157,6 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
             />
           </div>
 
-          {/* Sleep trend chart */}
           {chartData.length > 1 && (
             <div className="mt-6 pt-4 border-t">
               <div className="flex items-center justify-between mb-2">
