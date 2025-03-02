@@ -1,14 +1,13 @@
 
 import React from "react";
 import { cn } from "@/lib/utils";
-import { motion } from "framer-motion";
+import { motion, HTMLMotionProps } from "framer-motion";
 
-interface DashboardCardProps extends React.HTMLAttributes<HTMLDivElement> {
+interface DashboardCardProps extends HTMLMotionProps<"div"> {
   title: string;
   subtitle?: string;
   icon?: React.ReactNode;
   isLoading?: boolean;
-  className?: string;
   headerAction?: React.ReactNode;
   children: React.ReactNode;
 }
