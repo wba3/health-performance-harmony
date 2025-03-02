@@ -1,6 +1,7 @@
 
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from 'sonner';
 
 interface AuthContextType {
   isLoggedIn: boolean;
@@ -33,9 +34,16 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     const checkSession = async () => {
       try {
         const { data } = await supabase.auth.getSession();
-        setUser(data.session?.user || null);
+        if (data && data.session) {
+          console.log("Active session found:", data.session.user.email);
+          setUser(data.session.user);
+        } else {
+          console.log("No active session found");
+          setUser(null);
+        }
       } catch (error) {
         console.error('Error checking auth session:', error);
+        setUser(null);
       } finally {
         setLoading(false);
       }
@@ -46,7 +54,14 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Subscribe to auth changes
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
       (event, session) => {
-        setUser(session?.user || null);
+        console.log("Auth state changed:", event);
+        if (session) {
+          console.log("User is now logged in:", session.user.email);
+          setUser(session.user);
+        } else {
+          console.log("User is now logged out");
+          setUser(null);
+        }
         setLoading(false);
       }
     );
@@ -58,25 +73,40 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
+      console.log("Attempting login for:", email);
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
       });
 
       if (error) {
+        console.error("Login error:", error.message);
+        toast.error("Login failed: " + error.message);
         return { success: false, error: error.message };
       }
 
+      console.log("Login successful for:", data.user?.email);
+      toast.success("Login successful!");
       setUser(data.user);
       return { success: true };
     } catch (error: any) {
+      console.error("Unexpected login error:", error.message);
+      toast.error("An unexpected error occurred during login");
       return { success: false, error: error.message };
     }
   };
 
   const logout = async () => {
-    await supabase.auth.signOut();
-    setUser(null);
+    try {
+      console.log("Attempting logout");
+      await supabase.auth.signOut();
+      setUser(null);
+      toast.success("You've been logged out");
+      console.log("Logout successful");
+    } catch (error: any) {
+      console.error("Logout error:", error.message);
+      toast.error("Error during logout");
+    }
   };
 
   const value = {
