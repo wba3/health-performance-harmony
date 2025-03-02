@@ -13,7 +13,7 @@ import {
   FileWarning
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { MetricDisplay } from "@/components/ui/MetricDisplay";
+import MetricDisplay from "@/components/ui/MetricDisplay";
 import { Button } from "@/components/ui/button";
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, ResponsiveContainer, Tooltip } from "recharts";
 import { supabase } from "@/integrations/supabase/client";
