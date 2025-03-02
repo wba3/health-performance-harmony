@@ -5,7 +5,7 @@ import { BedDouble, ArrowRight, Moon, Activity, Heart, AlertCircle } from "lucid
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import MetricDisplay from "../ui/MetricDisplay";
-import { getLatestSleepData, SleepData } from "@/services/database";
+import { getSleepData, SleepData } from "@/services/database";
 import { formatMinutesToHoursAndMinutes } from "@/utils/formatters";
 import { isOuraConnected } from "@/services/ouraAPI";
 
@@ -25,8 +25,9 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
     
     const fetchSleepData = async () => {
       try {
-        const data = await getLatestSleepData();
-        setSleepData(data);
+        // Get the most recent sleep data entry (limit to 1)
+        const data = await getSleepData(1);
+        setSleepData(data.length > 0 ? data[0] : null);
         setIsLoading(false);
       } catch (err) {
         console.error('Error fetching sleep data:', err);

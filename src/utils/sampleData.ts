@@ -1,8 +1,7 @@
-
 import { 
   insertSleepData, 
   insertTrainingData, 
-  insertAIInsight 
+  upsertAIInsight 
 } from "@/services/database";
 
 // Function to insert sample sleep data for development
@@ -206,7 +205,7 @@ export const insertSampleAIInsights = async () => {
     ];
 
     for (const insight of sampleInsights) {
-      await insertAIInsight(insight);
+      await upsertAIInsight(insight);
     }
 
     console.log('Sample AI insights inserted successfully');

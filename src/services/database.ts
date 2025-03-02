@@ -34,6 +34,16 @@ export const getSleepData = async (limit: number = 7): Promise<SleepData[]> => {
   }
 };
 
+export const getLatestSleepData = async (): Promise<SleepData | null> => {
+  try {
+    const data = await getSleepData(1);
+    return data.length > 0 ? data[0] : null;
+  } catch (error) {
+    console.error('Error in getLatestSleepData:', error);
+    return null;
+  }
+};
+
 export const insertSleepData = async (sleepData: SleepData): Promise<string | null> => {
   try {
     const { data, error } = await supabase
