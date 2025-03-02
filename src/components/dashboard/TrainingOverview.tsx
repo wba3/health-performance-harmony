@@ -61,7 +61,16 @@ const TrainingOverview = () => {
     .map(activity => ({
       date: new Date(activity.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }),
       calories: activity.calories || 0,
+      distance: activity.distance || 0,
+      duration: activity.duration || 0,
     }));
+  
+  // Define series configuration for the chart
+  const seriesConfig = [
+    { key: "calories", color: "#FC4C02", unit: "kcal", label: "Calories" },
+    { key: "distance", color: "#2563EB", unit: "km", label: "Distance" },
+    { key: "duration", color: "#10B981", unit: "min", label: "Duration" }
+  ];
   
   // Get latest activity
   const latestActivity = trainingData[0] || null;
@@ -138,10 +147,9 @@ const TrainingOverview = () => {
           
           <ActivityChart 
             data={chartData} 
-            dataKey="calories" 
-            title="Weekly Calories Burned" 
-            color="#FC4C02"
-            unit="kcal"
+            dataKey="calories"
+            title="Weekly Activity"
+            series={seriesConfig}
           />
         </CardContent>
       )}
