@@ -1,11 +1,20 @@
-
-import React from "react";
-import { Link } from "react-router-dom";
+import React, { useEffect } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Button } from "@/components/ui/button";
 import PageTransition from "@/components/layout/PageTransition";
 import { MoveRight, Activity, Moon, Dumbbell, BrainCircuit } from "lucide-react";
+import { useAuth } from "@/hooks/useAuth";
 
 const LandingPage: React.FC = () => {
+  const { isAuthenticated } = useAuth();
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    if (!isAuthenticated) {
+      navigate("/login");
+    }
+  }, [isAuthenticated, navigate]);
+
   return (
     <PageTransition>
       <div className="container mx-auto px-4 pt-24 pb-16 min-h-screen flex flex-col items-center justify-center">
