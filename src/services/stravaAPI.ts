@@ -1,4 +1,3 @@
-
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
@@ -31,12 +30,13 @@ export const initiateStravaAuth = (clientId: string) => {
     const state = Math.random().toString(36).substring(2, 15);
     localStorage.setItem('strava_auth_state', state);
     
-    // Build authorization URL
+    // Build authorization URL with approval_prompt=force to ensure we always get the consent screen
+    // This helps when switching between different Google accounts
     const params = new URLSearchParams({
       client_id: clientId,
       redirect_uri: REDIRECT_URI,
       response_type: 'code',
-      approval_prompt: 'auto',
+      approval_prompt: 'force', // Force approval screen every time
       scope: 'activity:read_all,profile:read_all',
       state: state
     });
@@ -64,7 +64,7 @@ export const handleStravaCallback = async (
   clientId: string, 
   clientSecret: string
 ): Promise<boolean> => {
-  console.log('Handling Strava callback with code:', code);
+  console.log('Handling Strava callback with code:', code.substring(0, 5) + '...');
   
   try {
     // Verify state matches for security
@@ -118,17 +118,39 @@ export const handleStravaCallback = async (
     console.log('Token exchange response status:', tokenResponse.status);
     
     if (!tokenResponse.ok) {
-      const errorData = await tokenResponse.json().catch(() => ({}));
-      console.error('Strava token exchange failed:', tokenResponse.statusText, errorData);
+      let errorText = '';
+      let errorData = {};
+      
+      try {
+        errorData = await tokenResponse.json();
+        errorText = JSON.stringify(errorData);
+      } catch (e) {
+        errorText = await tokenResponse.text();
+      }
+      
+      console.error('Strava token exchange failed:', tokenResponse.statusText, errorText);
       
       // Handle redirect URI error specifically
-      if (errorData.errors && errorData.errors.some((e: any) => e.field === 'redirect_uri' && e.code === 'invalid')) {
+      if (errorData && 
+          (errorData as any).errors && 
+          (errorData as any).errors.some((e: any) => e.field === 'redirect_uri' && e.code === 'invalid')) {
         toast({
           title: "Redirect URI Error",
           description: "The redirect URI isn't authorized in your Strava API settings. Please add this exact URL to your Strava API application's authorized redirect URIs: " + REDIRECT_URI,
-          variant: "destructive",
+          variant: "warning",
         });
         console.error('IMPORTANT: Add this exact redirect URI to your Strava API application:', REDIRECT_URI);
+        return false;
+      }
+      
+      // Handle Google authentication specific errors
+      if (errorText.includes('google') || errorText.toLowerCase().includes('authentication failed')) {
+        toast({
+          title: "Google Authentication Error",
+          description: "There was an issue authenticating with Google through Strava. Please try again and make sure you're using the same Google account that's linked to your Strava account.",
+          variant: "warning",
+        });
+        console.error('Google authentication through Strava failed');
         return false;
       }
       
@@ -224,7 +246,14 @@ const refreshTokenIfNeeded = async (clientId: string, clientSecret: string): Pro
     });
     
     if (!response.ok) {
-      const errorText = await response.text();
+      let errorText = '';
+      try {
+        const errorData = await response.json();
+        errorText = JSON.stringify(errorData);
+      } catch (e) {
+        errorText = await response.text();
+      }
+      
       console.error('Strava token refresh failed:', response.statusText, errorText);
       throw new Error(`Strava token refresh failed: ${response.status} ${response.statusText}`);
     }
