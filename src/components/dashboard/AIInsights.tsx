@@ -1,34 +1,70 @@
 
-import React from "react";
+import React, { useEffect, useState } from "react";
 import DashboardCard from "./DashboardCard";
 import { Bot, ArrowRight, BrainCircuit } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
+import { getAIInsights, AIInsight } from "@/services/database";
 
 interface AIInsightsProps {
   isLoading?: boolean;
 }
 
-const AIInsights: React.FC<AIInsightsProps> = ({ isLoading = false }) => {
-  // Placeholder insights data
-  const insights = [
+const AIInsights: React.FC<AIInsightsProps> = ({ isLoading: initialLoading = false }) => {
+  const [insights, setInsights] = useState<AIInsight[]>([]);
+  const [isLoading, setIsLoading] = useState(initialLoading || true);
+  const [error, setError] = useState<string | null>(null);
+
+  useEffect(() => {
+    const fetchInsights = async () => {
+      try {
+        const data = await getAIInsights(3);
+        setInsights(data);
+        setIsLoading(false);
+      } catch (err) {
+        console.error('Error fetching AI insights:', err);
+        setError('Failed to load AI insights');
+        setIsLoading(false);
+      }
+    };
+
+    fetchInsights();
+  }, []);
+
+  // Fallback insights for empty state
+  const placeholderInsights = [
     {
-      id: 1,
+      id: "1",
+      date: new Date().toISOString(),
+      insight_type: "performance",
       content: "Your sleep score has been consistently high this week, which correlates with improved performance during your morning workouts.",
-      type: "performance"
+      is_read: false,
+      rating: null,
+      created_at: new Date().toISOString()
     },
     {
-      id: 2,
+      id: "2",
+      date: new Date().toISOString(),
+      insight_type: "recommendation",
       content: "Consider increasing your deep sleep by going to bed 30 minutes earlier on days before intense training sessions.",
-      type: "recommendation"
+      is_read: false,
+      rating: null,
+      created_at: new Date().toISOString()
     },
     {
-      id: 3,
+      id: "3",
+      date: new Date().toISOString(),
+      insight_type: "alert",
       content: "Your heart rate variability (HRV) dropped significantly after yesterday's high-intensity workout. Consider a recovery day.",
-      type: "alert"
+      is_read: false,
+      rating: null,
+      created_at: new Date().toISOString()
     }
   ];
+
+  // Use real insights if available, otherwise use placeholders
+  const displayInsights = insights.length > 0 ? insights : placeholderInsights;
 
   const getInsightTypeStyles = (type: string) => {
     switch (type) {
@@ -60,23 +96,34 @@ const AIInsights: React.FC<AIInsightsProps> = ({ isLoading = false }) => {
       className="col-span-1 md:col-span-2"
     >
       <div className="space-y-4">
-        {!isLoading ? (
+        {error ? (
+          <div className="p-4 text-red-500 bg-red-50 rounded-md">
+            {error}
+          </div>
+        ) : !isLoading ? (
           <>
             <div className="space-y-4">
-              {insights.map((insight, index) => (
+              {displayInsights.map((insight, index) => (
                 <motion.div
                   key={insight.id}
                   initial={{ opacity: 0, y: 10 }}
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ duration: 0.3, delay: index * 0.1 }}
-                  className={`p-4 rounded-md ${getInsightTypeStyles(insight.type)}`}
+                  className={`p-4 rounded-md ${getInsightTypeStyles(insight.insight_type)}`}
                 >
                   <p className="text-sm">{insight.content}</p>
                 </motion.div>
               ))}
             </div>
             
-            <Button variant="outline" className="w-full flex items-center justify-center gap-2">
+            <Button 
+              variant="outline" 
+              className="w-full flex items-center justify-center gap-2"
+              onClick={() => {
+                // This will be connected to OpenAI API later
+                console.log("Getting more insights...");
+              }}
+            >
               <BrainCircuit className="w-4 h-4" />
               <span>Get More Insights</span>
             </Button>

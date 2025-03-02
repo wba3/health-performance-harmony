@@ -9,7 +9,165 @@ export type Json =
 export type Database = {
   public: {
     Tables: {
-      [_ in never]: never
+      ai_insights: {
+        Row: {
+          content: string
+          created_at: string | null
+          date: string
+          id: string
+          insight_type: string
+          is_read: boolean | null
+          rating: number | null
+        }
+        Insert: {
+          content: string
+          created_at?: string | null
+          date: string
+          id?: string
+          insight_type: string
+          is_read?: boolean | null
+          rating?: number | null
+        }
+        Update: {
+          content?: string
+          created_at?: string | null
+          date?: string
+          id?: string
+          insight_type?: string
+          is_read?: boolean | null
+          rating?: number | null
+        }
+        Relationships: []
+      }
+      goals: {
+        Row: {
+          created_at: string | null
+          end_date: string | null
+          goal_type: string
+          id: string
+          is_completed: boolean | null
+          progress: number | null
+          start_date: string
+          target_unit: string
+          target_value: number
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          end_date?: string | null
+          goal_type: string
+          id?: string
+          is_completed?: boolean | null
+          progress?: number | null
+          start_date: string
+          target_unit: string
+          target_value: number
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          end_date?: string | null
+          goal_type?: string
+          id?: string
+          is_completed?: boolean | null
+          progress?: number | null
+          start_date?: string
+          target_unit?: string
+          target_value?: number
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      sleep_data: {
+        Row: {
+          created_at: string | null
+          date: string
+          deep_sleep: number | null
+          hrv: number | null
+          id: string
+          light_sleep: number | null
+          rem_sleep: number | null
+          respiratory_rate: number | null
+          resting_hr: number | null
+          sleep_score: number | null
+          total_sleep: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          created_at?: string | null
+          date: string
+          deep_sleep?: number | null
+          hrv?: number | null
+          id?: string
+          light_sleep?: number | null
+          rem_sleep?: number | null
+          respiratory_rate?: number | null
+          resting_hr?: number | null
+          sleep_score?: number | null
+          total_sleep?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          created_at?: string | null
+          date?: string
+          deep_sleep?: number | null
+          hrv?: number | null
+          id?: string
+          light_sleep?: number | null
+          rem_sleep?: number | null
+          respiratory_rate?: number | null
+          resting_hr?: number | null
+          sleep_score?: number | null
+          total_sleep?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
+      training_data: {
+        Row: {
+          activity_type: string
+          avg_heart_rate: number | null
+          avg_power: number | null
+          calories: number | null
+          created_at: string | null
+          date: string
+          distance: number | null
+          duration: number | null
+          id: string
+          max_heart_rate: number | null
+          max_power: number | null
+          updated_at: string | null
+        }
+        Insert: {
+          activity_type: string
+          avg_heart_rate?: number | null
+          avg_power?: number | null
+          calories?: number | null
+          created_at?: string | null
+          date: string
+          distance?: number | null
+          duration?: number | null
+          id?: string
+          max_heart_rate?: number | null
+          max_power?: number | null
+          updated_at?: string | null
+        }
+        Update: {
+          activity_type?: string
+          avg_heart_rate?: number | null
+          avg_power?: number | null
+          calories?: number | null
+          created_at?: string | null
+          date?: string
+          distance?: number | null
+          duration?: number | null
+          id?: string
+          max_heart_rate?: number | null
+          max_power?: number | null
+          updated_at?: string | null
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
