@@ -269,7 +269,17 @@ export const getAIInsights = async (limit: number = 10): Promise<AIInsight[]> =>
   }
 };
 
-export const insertAIInsight = async (insight: Omit<AIInsight, 'id' | 'created_at'>): Promise<string | null> => {
+// Defining a simpler type for insight creation to avoid recursive type issues
+export type AIInsightInput = {
+  date: string;
+  insight_type: string;
+  content: string;
+  is_read: boolean;
+  rating: number | null;
+  created_at?: string;
+};
+
+export const insertAIInsight = async (insight: AIInsightInput): Promise<string | null> => {
   try {
     const { data, error } = await supabase
       .from('ai_insights')
@@ -287,6 +297,9 @@ export const insertAIInsight = async (insight: Omit<AIInsight, 'id' | 'created_a
     return null;
   }
 };
+
+// Adding back upsertAIInsight as an alias to insertAIInsight for backward compatibility
+export const upsertAIInsight = insertAIInsight;
 
 export const markInsightAsRead = async (id: string): Promise<boolean> => {
   try {
