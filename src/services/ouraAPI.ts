@@ -1,299 +1,350 @@
+
 import { supabase } from "@/integrations/supabase/client";
-import { insertSleepData } from "./database";
+import { SleepInsertData, insertSleepData } from "@/services/database/sleepService";
+import { toast } from "@/components/ui/use-toast";
 
-// Oura API constants
-const OURA_API_URL = "https://api.ouraring.com/v2";
-const OURA_AUTH_URL = "https://cloud.ouraring.com/oauth/authorize";
-const OURA_TOKEN_URL = "https://api.ouraring.com/oauth/token";
-
-// Oura API response types
-export interface OuraTokenResponse {
+// Type definitions for Oura credentials
+interface OuraCredentials {
+  id: number;
   access_token: string;
   refresh_token: string;
-  token_type: string;
-  expires_in: number;
+  expires_at: number;
+  created_at?: string;
 }
 
-export interface OuraSleepData {
-  id: string;
-  day: string;
-  contributors?: {
-    deep_sleep: number;
-    efficiency: number;
-    latency: number;
-    rem_sleep: number;
-    restfulness: number;
-    timing: number;
-    total_sleep: number;
-  };
-  score: number;
-  timestamp: string;
-}
-
-export interface OuraSleepResponse {
-  data: OuraSleepData[];
-  next_token: string | null;
-}
-
-export interface OuraCredentials {
-  accessToken: string;
-  refreshToken: string;
-  expiresAt: number;
-}
-
-// Store Oura credentials in localStorage (temporary solution)
-// In a production app, these should be stored securely on the server
-const storeOuraCredentials = async (credentials: OuraCredentials): Promise<void> => {
-  localStorage.setItem('ouraCredentials', JSON.stringify(credentials));
+/**
+ * Check if Oura is connected by looking for valid credentials
+ */
+export const isOuraConnected = async (): Promise<boolean> => {
+  try {
+    // For now, use localStorage instead of the database
+    const credentials = localStorage.getItem('oura_credentials');
+    return !!credentials;
+    
+    // Once database is working, use this instead:
+    /*
+    const { data, error } = await supabase
+      .from('oura_credentials')
+      .select('*')
+      .limit(1);
+      
+    if (error) {
+      console.error('Error checking Oura connection:', error);
+      return false;
+    }
+    
+    return !!data && data.length > 0;
+    */
+  } catch (error) {
+    console.error('Error in isOuraConnected:', error);
+    return false;
+  }
 };
 
-const getOuraCredentials = async (): Promise<OuraCredentials | null> => {
-  const credentialsStr = localStorage.getItem('ouraCredentials');
-  if (!credentialsStr) return null;
-  
+/**
+ * Save Oura credentials to storage
+ */
+export const saveOuraCredentials = async (
+  accessToken: string, 
+  refreshToken: string,
+  expiresAt: number
+): Promise<boolean> => {
   try {
-    return JSON.parse(credentialsStr) as OuraCredentials;
+    // For now, use localStorage instead of the database
+    const credentials = {
+      id: 1,
+      access_token: accessToken,
+      refresh_token: refreshToken,
+      expires_at: expiresAt,
+      created_at: new Date().toISOString()
+    };
+    
+    localStorage.setItem('oura_credentials', JSON.stringify(credentials));
+    return true;
+    
+    // Once database is working, use this instead:
+    /*
+    const { data, error } = await supabase
+      .from('oura_credentials')
+      .upsert({ 
+        id: 1, // Using 1 as the ID for single-user mode
+        access_token: accessToken,
+        refresh_token: refreshToken,
+        expires_at: expiresAt
+      })
+      .select();
+    
+    if (error) {
+      console.error('Error saving Oura credentials:', error);
+      return false;
+    }
+    
+    return !!data;
+    */
   } catch (error) {
-    console.error('Error parsing Oura credentials:', error);
+    console.error('Error in saveOuraCredentials:', error);
+    return false;
+  }
+};
+
+/**
+ * Get stored Oura credentials
+ */
+export const getOuraCredentials = async (): Promise<OuraCredentials | null> => {
+  try {
+    // For now, use localStorage instead of the database
+    const credentialsJson = localStorage.getItem('oura_credentials');
+    if (!credentialsJson) return null;
+    
+    return JSON.parse(credentialsJson) as OuraCredentials;
+    
+    // Once database is working, use this instead:
+    /*
+    const { data, error } = await supabase
+      .from('oura_credentials')
+      .select('*')
+      .eq('id', 1) // Using 1 as the ID for single-user mode
+      .single();
+    
+    if (error) {
+      console.error('Error getting Oura credentials:', error);
+      return null;
+    }
+    
+    return data as OuraCredentials;
+    */
+  } catch (error) {
+    console.error('Error in getOuraCredentials:', error);
     return null;
   }
 };
 
-// Initialize OAuth flow
-export const initiateOuraAuth = (clientId: string): void => {
-  // Define redirect URL - in production this should be your actual app URL
-  const redirectUri = `${window.location.origin}/settings`;
-  
-  // Define scopes needed for sleep data
-  const scope = "daily sleep";
-  
-  // Generate a random state value for security
-  const state = Math.random().toString(36).substring(2, 15);
-  localStorage.setItem('ouraAuthState', state);
-  
-  // Build authorization URL
-  const authUrl = `${OURA_AUTH_URL}?client_id=${clientId}&redirect_uri=${encodeURIComponent(redirectUri)}&scope=${encodeURIComponent(scope)}&state=${state}&response_type=code`;
-  
-  // Redirect to Oura authorization page
-  window.location.href = authUrl;
+/**
+ * Clear Oura credentials
+ */
+export const clearOuraCredentials = async (): Promise<boolean> => {
+  try {
+    // For now, use localStorage instead of the database
+    localStorage.removeItem('oura_credentials');
+    return true;
+    
+    // Once database is working, use this instead:
+    /*
+    const { error } = await supabase
+      .from('oura_credentials')
+      .delete()
+      .eq('id', 1); // Using 1 as the ID for single-user mode
+    
+    if (error) {
+      console.error('Error clearing Oura credentials:', error);
+      return false;
+    }
+    
+    return true;
+    */
+  } catch (error) {
+    console.error('Error in clearOuraCredentials:', error);
+    return false;
+  }
 };
 
-// Handle OAuth callback and exchange code for tokens
-export const handleOuraCallback = async (
-  code: string, 
-  state: string,
-  clientId: string,
-  clientSecret: string
-): Promise<boolean> => {
-  // Verify state to prevent CSRF attacks
-  const savedState = localStorage.getItem('ouraAuthState');
-  if (state !== savedState) {
-    throw new Error("State validation failed");
-  }
-  
-  // Exchange authorization code for tokens
-  const redirectUri = `${window.location.origin}/settings`;
-  
+/**
+ * Authenticate with Oura
+ */
+export const authenticateWithOura = async (authCode: string): Promise<boolean> => {
   try {
-    const response = await fetch(OURA_TOKEN_URL, {
+    // Client ID and redirect URI should be stored as environment variables
+    const clientId = process.env.REACT_APP_OURA_CLIENT_ID || '';
+    const clientSecret = process.env.REACT_APP_OURA_CLIENT_SECRET || '';
+    const redirectUri = window.location.origin + '/settings';
+    
+    // Exchange auth code for tokens
+    const response = await fetch('https://api.ouraring.com/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
         grant_type: 'authorization_code',
-        code,
+        code: authCode,
         client_id: clientId,
         client_secret: clientSecret,
         redirect_uri: redirectUri,
       }),
     });
-    
+
     if (!response.ok) {
-      throw new Error(`Token exchange failed: ${response.statusText}`);
+      const errorData = await response.json();
+      throw new Error(errorData.error_description || 'Failed to authenticate with Oura');
     }
+
+    const data = await response.json();
     
-    const tokenData: OuraTokenResponse = await response.json();
+    // Calculate expiration timestamp
+    const expiresAt = Math.floor(Date.now() / 1000) + data.expires_in;
     
-    // Calculate token expiration time
-    const expiresAt = Date.now() + (tokenData.expires_in * 1000);
-    
-    // Store credentials
-    await storeOuraCredentials({
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      expiresAt,
-    });
+    // Save tokens
+    await saveOuraCredentials(
+      data.access_token,
+      data.refresh_token,
+      expiresAt
+    );
     
     return true;
   } catch (error) {
-    console.error("Error exchanging code for tokens:", error);
+    console.error('Error authenticating with Oura:', error);
+    toast({
+      title: "Oura Authentication Failed",
+      description: error instanceof Error ? error.message : "Unknown error occurred",
+      variant: "destructive",
+    });
     return false;
   }
 };
 
-// Refresh token if expired
-const refreshTokenIfNeeded = async (
-  clientId: string,
-  clientSecret: string
-): Promise<string | null> => {
-  const credentials = await getOuraCredentials();
-  if (!credentials) {
-    return null;
-  }
-  
-  // If token is still valid, return it
-  if (credentials.expiresAt > Date.now()) {
-    return credentials.accessToken;
-  }
-  
-  // Otherwise, refresh the token
+/**
+ * Refresh Oura access token
+ */
+export const refreshOuraToken = async (): Promise<string | null> => {
   try {
-    const response = await fetch(OURA_TOKEN_URL, {
+    const credentials = await getOuraCredentials();
+    if (!credentials) {
+      throw new Error('No Oura credentials found');
+    }
+    
+    // Check if token needs refresh
+    const now = Math.floor(Date.now() / 1000);
+    if (credentials.expires_at > now + 60) {
+      // Token is still valid
+      return credentials.access_token;
+    }
+    
+    // Client ID and secret should be stored as environment variables
+    const clientId = process.env.REACT_APP_OURA_CLIENT_ID || '';
+    const clientSecret = process.env.REACT_APP_OURA_CLIENT_SECRET || '';
+    
+    // Refresh the token
+    const response = await fetch('https://api.ouraring.com/oauth/token', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/x-www-form-urlencoded',
       },
       body: new URLSearchParams({
         grant_type: 'refresh_token',
-        refresh_token: credentials.refreshToken,
+        refresh_token: credentials.refresh_token,
         client_id: clientId,
         client_secret: clientSecret,
       }),
     });
-    
+
     if (!response.ok) {
-      throw new Error(`Token refresh failed: ${response.statusText}`);
+      throw new Error('Failed to refresh Oura token');
     }
+
+    const data = await response.json();
     
-    const tokenData: OuraTokenResponse = await response.json();
+    // Calculate new expiration timestamp
+    const expiresAt = Math.floor(Date.now() / 1000) + data.expires_in;
     
-    // Calculate new expiration time
-    const expiresAt = Date.now() + (tokenData.expires_in * 1000);
+    // Save new tokens
+    await saveOuraCredentials(
+      data.access_token,
+      data.refresh_token,
+      expiresAt
+    );
     
-    // Store new credentials
-    await storeOuraCredentials({
-      accessToken: tokenData.access_token,
-      refreshToken: tokenData.refresh_token,
-      expiresAt,
-    });
-    
-    return tokenData.access_token;
+    return data.access_token;
   } catch (error) {
-    console.error("Error refreshing token:", error);
+    console.error('Error refreshing Oura token:', error);
     return null;
   }
 };
 
-// Get sleep data from Oura API
-export const fetchOuraSleepData = async (
-  clientId: string,
-  clientSecret: string,
-  startDate: string,
-  endDate: string
-): Promise<OuraSleepData[] | null> => {
-  const accessToken = await refreshTokenIfNeeded(clientId, clientSecret);
-  
-  if (!accessToken) {
-    console.error("No valid access token available");
-    return null;
-  }
-  
+/**
+ * Get sleep data from Oura API
+ */
+export const getSleepDataFromOura = async (startDate: string, endDate: string): Promise<any[]> => {
   try {
-    const url = `${OURA_API_URL}/usercollection/daily_sleep?start_date=${startDate}&end_date=${endDate}`;
-    
-    const response = await fetch(url, {
-      headers: {
-        'Authorization': `Bearer ${accessToken}`,
-        'Content-Type': 'application/json',
-      },
-    });
-    
-    if (!response.ok) {
-      throw new Error(`Failed to fetch sleep data: ${response.statusText}`);
+    // Get valid access token
+    const accessToken = await refreshOuraToken();
+    if (!accessToken) {
+      throw new Error('Failed to get valid Oura access token');
     }
     
-    const data: OuraSleepResponse = await response.json();
-    return data.data;
+    // Fetch sleep data
+    const response = await fetch(
+      `https://api.ouraring.com/v2/usercollection/sleep?start_date=${startDate}&end_date=${endDate}`,
+      {
+        headers: {
+          'Authorization': `Bearer ${accessToken}`,
+        },
+      }
+    );
+
+    if (!response.ok) {
+      throw new Error('Failed to fetch sleep data from Oura');
+    }
+
+    const data = await response.json();
+    return data.data || [];
   } catch (error) {
-    console.error("Error fetching sleep data:", error);
-    return null;
+    console.error('Error fetching sleep data from Oura:', error);
+    return [];
   }
 };
 
-// Import sleep data to the database
-export const importOuraSleepData = async (
-  clientId: string,
-  clientSecret: string,
-  days: number = 7
-): Promise<number> => {
-  // Calculate date range
-  const endDate = new Date().toISOString().split('T')[0];
-  const startDate = new Date(Date.now() - days * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
-  
+/**
+ * Import sleep data from Oura API to database
+ */
+export const importSleepDataFromOura = async (days: number = 30): Promise<number> => {
   try {
-    const sleepData = await fetchOuraSleepData(clientId, clientSecret, startDate, endDate);
+    // Calculate date range
+    const endDate = new Date();
+    const startDate = new Date();
+    startDate.setDate(startDate.getDate() - days);
+    
+    const startDateStr = startDate.toISOString().split('T')[0];
+    const endDateStr = endDate.toISOString().split('T')[0];
+    
+    // Get sleep data from Oura
+    const sleepData = await getSleepDataFromOura(startDateStr, endDateStr);
     
     if (!sleepData || sleepData.length === 0) {
       return 0;
     }
     
+    // Process and insert each sleep record
     let importCount = 0;
     
-    for (const day of sleepData) {
-      if (!day.contributors) continue;
-      
-      const formattedData = {
-        date: day.day,
-        sleep_score: day.score,
-        total_sleep: Math.round(day.contributors.total_sleep * 60), // Convert to minutes
-        deep_sleep: Math.round((day.contributors.deep_sleep / 100) * day.contributors.total_sleep * 60),
-        rem_sleep: Math.round((day.contributors.rem_sleep / 100) * day.contributors.total_sleep * 60),
-        light_sleep: Math.round(
-          (1 - (day.contributors.deep_sleep + day.contributors.rem_sleep) / 100) * 
-          day.contributors.total_sleep * 60
-        ),
-        // These fields would need additional API calls to get heart rate data
-        resting_hr: null,
-        hrv: null,
-        respiratory_rate: null
-      };
-      
-      // Check if this date already exists in the database
-      const { data: existingData } = await supabase
-        .from('sleep_data')
-        .select('id')
-        .eq('date', day.day)
-        .maybeSingle();
-      
-      if (existingData) {
-        // Update existing record
-        await supabase
-          .from('sleep_data')
-          .update(formattedData)
-          .eq('id', existingData.id);
-      } else {
-        // Insert new record
-        await insertSleepData(formattedData);
+    for (const sleep of sleepData) {
+      try {
+        // Format the sleep data
+        const sleepRecord: SleepInsertData = {
+          date: sleep.day,
+          sleep_score: sleep.sleep_score,
+          total_sleep: sleep.total_sleep_duration ? Math.round(sleep.total_sleep_duration / 60) : null, // Convert to minutes
+          deep_sleep: sleep.deep_sleep_duration ? Math.round(sleep.deep_sleep_duration / 60) : null,
+          rem_sleep: sleep.rem_sleep_duration ? Math.round(sleep.rem_sleep_duration / 60) : null,
+          light_sleep: sleep.light_sleep_duration ? Math.round(sleep.light_sleep_duration / 60) : null,
+          resting_hr: sleep.average_heart_rate,
+          hrv: sleep.average_hrv,
+          respiratory_rate: sleep.average_breathing_rate,
+        };
+        
+        // Insert the sleep data
+        const result = await insertSleepData(sleepRecord);
+        
+        if (result) {
+          importCount++;
+        }
+      } catch (err) {
+        console.error('Error importing sleep data:', err);
       }
-      
-      importCount++;
     }
     
     return importCount;
   } catch (error) {
-    console.error("Error importing sleep data:", error);
+    console.error('Error importing sleep data from Oura:', error);
     return 0;
   }
-};
-
-// Check if user is connected to Oura
-export const isOuraConnected = async (): Promise<boolean> => {
-  const credentials = await getOuraCredentials();
-  return credentials !== null;
-};
-
-// Disconnect from Oura
-export const disconnectOura = async (): Promise<void> => {
-  localStorage.removeItem('ouraCredentials');
 };
