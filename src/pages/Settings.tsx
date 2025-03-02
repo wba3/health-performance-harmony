@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
 import { useSearchParams } from "react-router-dom";
 import { initiateOuraAuth, handleOuraCallback, isOuraConnected, disconnectOura, importOuraSleepData } from "@/services/ouraAPI";
-import { initiateStravaAuth, handleStravaCallback, isStravaConnected, disconnectStrava, importStravaActivities } from "@/services/stravaAPI";
+import { initiateStravaAuth, handleStravaCallback, isStravaConnected, disconnectStrava, importStravaActivities, testStravaConnection } from "@/services/stravaAPI";
 
 const Settings: React.FC = () => {
   const [searchParams] = useSearchParams();
@@ -145,16 +145,26 @@ const Settings: React.FC = () => {
             description: "Your Strava account has been successfully connected.",
             variant: "default",
           });
+          
+          // Test the connection
+          return testStravaConnection(stravaClientId, stravaClientSecret);
         } else {
+          throw new Error("Failed to connect to Strava");
+        }
+      })
+      .then(connectionWorking => {
+        if (!connectionWorking) {
+          console.warn("Strava connected but API test failed");
           toast({
-            title: "Connection Failed",
-            description: "Could not connect to Strava. Please try again.",
-            variant: "destructive",
+            title: "Connection Warning",
+            description: "Connected to Strava, but API test failed. You may need to check your credentials.",
+            variant: "warning",
           });
         }
       })
       .catch(err => {
         console.error("Error handling Strava OAuth callback:", err);
+        setStravaConnected(false);
         toast({
           title: "Connection Error",
           description: err.message || "An error occurred during the connection process.",
@@ -200,12 +210,20 @@ const Settings: React.FC = () => {
       return;
     }
     
-    // Save client credentials to use after OAuth redirect
-    localStorage.setItem('stravaClientId', stravaClientId);
-    if (stravaClientSecret) {
-      localStorage.setItem('stravaClientSecret', stravaClientSecret);
+    if (!stravaClientSecret) {
+      toast({
+        title: "Client Secret Required",
+        description: "Please enter your Strava API Client Secret.",
+        variant: "destructive",
+      });
+      return;
     }
     
+    // Save client credentials to use after OAuth redirect
+    localStorage.setItem('stravaClientId', stravaClientId);
+    localStorage.setItem('stravaClientSecret', stravaClientSecret);
+    
+    // Start the OAuth flow
     initiateStravaAuth(stravaClientId);
   };
 

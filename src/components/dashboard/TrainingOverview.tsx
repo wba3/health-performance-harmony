@@ -31,21 +31,28 @@ const TrainingOverview = () => {
       
       try {
         // Check Strava connection status
-        setStravaConnected(isStravaConnected());
+        const connected = isStravaConnected();
+        setStravaConnected(connected);
+        
+        console.log("Strava connected:", connected);
         
         // Get last 7 days of training data
-        const { data, error } = await supabase
+        const { data, error: fetchError } = await supabase
           .from("training_data")
           .select("*")
           .order("date", { ascending: false })
           .limit(7);
           
-        if (error) throw error;
+        if (fetchError) {
+          console.error("Supabase error:", fetchError);
+          throw new Error(fetchError.message);
+        }
         
+        console.log("Training data retrieved:", data?.length || 0, "records");
         setTrainingData(data || []);
-      } catch (err) {
+      } catch (err: any) {
         console.error("Error fetching training data:", err);
-        setError("Failed to load training data");
+        setError(err.message || "Failed to load training data");
       } finally {
         setIsLoading(false);
       }

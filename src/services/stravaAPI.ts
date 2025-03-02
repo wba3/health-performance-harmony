@@ -1,5 +1,6 @@
 
 import { supabase } from '@/integrations/supabase/client';
+import { toast } from '@/components/ui/use-toast';
 
 const STRAVA_AUTH_URL = 'https://www.strava.com/oauth/authorize';
 const STRAVA_TOKEN_URL = 'https://www.strava.com/oauth/token';
@@ -13,22 +14,46 @@ const STRAVA_TOKEN_EXPIRY_KEY = 'strava_token_expiry';
 
 // Initialize OAuth flow
 export const initiateStravaAuth = (clientId: string) => {
-  // Generate a random state for security
-  const state = Math.random().toString(36).substring(2, 15);
-  localStorage.setItem('strava_auth_state', state);
-  
-  // Build authorization URL
-  const params = new URLSearchParams({
-    client_id: clientId,
-    redirect_uri: REDIRECT_URI,
-    response_type: 'code',
-    approval_prompt: 'auto',
-    scope: 'activity:read_all,profile:read_all',
-    state: state
-  });
-  
-  // Redirect to Strava authorization page
-  window.location.href = `${STRAVA_AUTH_URL}?${params.toString()}`;
+  try {
+    // Validate client ID
+    if (!clientId || clientId.trim() === '') {
+      toast({
+        title: "Client ID Required",
+        description: "Please enter a valid Strava API Client ID",
+        variant: "destructive",
+      });
+      return;
+    }
+    
+    console.log('Initiating Strava auth with client ID:', clientId);
+    
+    // Generate a random state for security
+    const state = Math.random().toString(36).substring(2, 15);
+    localStorage.setItem('strava_auth_state', state);
+    
+    // Build authorization URL
+    const params = new URLSearchParams({
+      client_id: clientId,
+      redirect_uri: REDIRECT_URI,
+      response_type: 'code',
+      approval_prompt: 'auto',
+      scope: 'activity:read_all,profile:read_all',
+      state: state
+    });
+    
+    const authUrl = `${STRAVA_AUTH_URL}?${params.toString()}`;
+    console.log('Redirecting to Strava auth URL:', authUrl);
+    
+    // Redirect to Strava authorization page
+    window.location.href = authUrl;
+  } catch (error) {
+    console.error('Error initiating Strava auth:', error);
+    toast({
+      title: "Authorization Error",
+      description: "Failed to initiate Strava authorization",
+      variant: "destructive",
+    });
+  }
 };
 
 // Handle OAuth callback and token exchange
@@ -38,14 +63,26 @@ export const handleStravaCallback = async (
   clientId: string, 
   clientSecret: string
 ): Promise<boolean> => {
+  console.log('Handling Strava callback with code:', code);
+  
   // Verify state matches for security
   const savedState = localStorage.getItem('strava_auth_state');
   if (state !== savedState) {
     console.error('State mismatch in Strava auth flow');
+    console.log('Received state:', state);
+    console.log('Saved state:', savedState);
     return false;
   }
   
   try {
+    // Validate client credentials
+    if (!clientId || !clientSecret) {
+      console.error('Missing Strava client credentials');
+      return false;
+    }
+    
+    console.log('Exchanging code for tokens...');
+    
     // Exchange authorization code for tokens
     const response = await fetch(STRAVA_TOKEN_URL, {
       method: 'POST',
@@ -60,11 +97,16 @@ export const handleStravaCallback = async (
       }),
     });
     
+    console.log('Token exchange response status:', response.status);
+    
     if (!response.ok) {
-      throw new Error(`Strava token exchange failed: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Strava token exchange failed:', response.statusText, errorText);
+      throw new Error(`Strava token exchange failed: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    console.log('Token exchange successful, received tokens');
     
     // Save tokens to localStorage
     saveTokens(data.access_token, data.refresh_token, data.expires_at);
@@ -108,6 +150,8 @@ const refreshTokenIfNeeded = async (clientId: string, clientSecret: string): Pro
   }
   
   try {
+    console.log('Refreshing Strava token...');
+    
     const response = await fetch(STRAVA_TOKEN_URL, {
       method: 'POST',
       headers: {
@@ -122,10 +166,13 @@ const refreshTokenIfNeeded = async (clientId: string, clientSecret: string): Pro
     });
     
     if (!response.ok) {
-      throw new Error(`Strava token refresh failed: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Strava token refresh failed:', response.statusText, errorText);
+      throw new Error(`Strava token refresh failed: ${response.status} ${response.statusText}`);
     }
     
     const data = await response.json();
+    console.log('Token refresh successful');
     saveTokens(data.access_token, data.refresh_token, data.expires_at);
     
     return true;
@@ -175,6 +222,8 @@ const fetchWithAuth = async (
 // Fetch athlete profile
 export const fetchAthleteProfile = async (clientId: string, clientSecret: string) => {
   try {
+    console.log('Fetching Strava athlete profile...');
+    
     const response = await fetchWithAuth(
       `${STRAVA_API_BASE}/athlete`, 
       clientId, 
@@ -182,7 +231,9 @@ export const fetchAthleteProfile = async (clientId: string, clientSecret: string
     );
     
     if (!response.ok) {
-      throw new Error(`Strava API error: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Strava API error:', response.statusText, errorText);
+      throw new Error(`Strava API error: ${response.status} ${response.statusText}`);
     }
     
     return await response.json();
@@ -208,6 +259,48 @@ const formatActivity = (activity: any) => {
   };
 };
 
+// Test Strava API connection
+export const testStravaConnection = async (
+  clientId: string, 
+  clientSecret: string
+): Promise<boolean> => {
+  try {
+    console.log('Testing Strava API connection...');
+    
+    // First check if we have valid tokens
+    if (!isStravaConnected()) {
+      console.error('Not connected to Strava');
+      return false;
+    }
+    
+    // Try to refresh token if needed
+    const refreshed = await refreshTokenIfNeeded(clientId, clientSecret);
+    if (!refreshed) {
+      console.error('Failed to refresh Strava token');
+      return false;
+    }
+    
+    // Simple API call to test connection
+    const response = await fetchWithAuth(
+      `${STRAVA_API_BASE}/athlete`, 
+      clientId, 
+      clientSecret
+    );
+    
+    if (!response.ok) {
+      const errorText = await response.text();
+      console.error('Strava connection test failed:', response.statusText, errorText);
+      return false;
+    }
+    
+    console.log('Strava connection test successful');
+    return true;
+  } catch (error) {
+    console.error('Error testing Strava connection:', error);
+    return false;
+  }
+};
+
 // Import activities into Supabase
 export const importStravaActivities = async (
   clientId: string, 
@@ -215,6 +308,8 @@ export const importStravaActivities = async (
   days: number = 30
 ): Promise<number> => {
   try {
+    console.log(`Importing Strava activities from last ${days} days...`);
+    
     // Get activities from last 'days' days
     const after = new Date();
     after.setDate(after.getDate() - days);
@@ -227,10 +322,13 @@ export const importStravaActivities = async (
     );
     
     if (!response.ok) {
-      throw new Error(`Strava API error: ${response.statusText}`);
+      const errorText = await response.text();
+      console.error('Strava API error:', response.statusText, errorText);
+      throw new Error(`Strava API error: ${response.status} ${response.statusText}`);
     }
     
     const activities = await response.json();
+    console.log(`Found ${activities.length} Strava activities`);
     
     // Format activities for our database
     const formattedActivities = activities.map(formatActivity);
@@ -259,6 +357,7 @@ export const importStravaActivities = async (
       }
     }
     
+    console.log(`Imported ${insertCount} new Strava activities`);
     return insertCount;
   } catch (error) {
     console.error('Error importing Strava activities:', error);
