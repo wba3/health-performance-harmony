@@ -1,8 +1,13 @@
+
 import React, { useState } from "react";
 import PageTransition from "@/components/layout/PageTransition";
 import { Settings as SettingsIcon } from "lucide-react";
 import SettingsNav from "@/components/settings/SettingsNav";
 import ApiSettings from "@/components/settings/ApiSettings";
+import ProfileSettings from "@/components/settings/ProfileSettings";
+import NotificationsSettings from "@/components/settings/NotificationsSettings";
+import AppearanceSettings from "@/components/settings/AppearanceSettings";
+import SecuritySettings from "@/components/settings/SecuritySettings";
 
 const Settings: React.FC = () => {
   const [activeTab, setActiveTab] = useState<string>('api');
@@ -27,8 +32,11 @@ const Settings: React.FC = () => {
 
           <div>
             <div className="space-y-6">
+              {activeTab === 'profile' && <ProfileSettings />}
               {activeTab === 'api' && <ApiSettings />}
-              {/* Other tabs would be rendered here */}
+              {activeTab === 'notifications' && <NotificationsSettings />}
+              {activeTab === 'appearance' && <AppearanceSettings />}
+              {activeTab === 'security' && <SecuritySettings />}
             </div>
           </div>
         </div>
