@@ -1,13 +1,24 @@
 
-import React, { useState } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import PageTransition from "@/components/layout/PageTransition";
-import { Bot, Send, BrainCircuit, Sparkles, Dumbbell, Salad, Clock } from "lucide-react";
+import { Bot, Send, BrainCircuit, Sparkles, Dumbbell, Salad, Clock, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { motion, AnimatePresence } from "framer-motion";
+import { generateCoachResponse, isOpenAIConfigured } from "@/services/openaiAPI";
+import { useToast } from "@/components/ui/use-toast";
+import { Link } from "react-router-dom";
+
+interface Message {
+  id: number;
+  type: "user" | "bot";
+  content: string;
+  timestamp: string;
+}
 
 const AICoach: React.FC = () => {
-  const [messages, setMessages] = useState([
+  const { toast } = useToast();
+  const [messages, setMessages] = useState<Message[]>([
     {
       id: 1,
       type: "bot",
@@ -18,15 +29,38 @@ const AICoach: React.FC = () => {
   
   const [inputValue, setInputValue] = useState("");
   const [isLoading, setIsLoading] = useState(false);
+  const [openAIConfigured, setOpenAIConfigured] = useState<boolean>(false);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const handleSendMessage = (e: React.FormEvent) => {
+  useEffect(() => {
+    setOpenAIConfigured(isOpenAIConfigured());
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages]);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  };
+
+  const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
     
     if (!inputValue.trim()) return;
+
+    if (!openAIConfigured) {
+      toast({
+        title: "OpenAI API Key Required",
+        description: "Please add your OpenAI API key in Settings to use the AI Coach.",
+        variant: "destructive",
+      });
+      return;
+    }
     
     // Add user message
     const userMessageId = Date.now();
-    const userMessage = {
+    const userMessage: Message = {
       id: userMessageId,
       type: "user",
       content: inputValue,
@@ -37,28 +71,43 @@ const AICoach: React.FC = () => {
     setInputValue("");
     setIsLoading(true);
     
-    // Simulate AI response after a delay
-    setTimeout(() => {
-      const botResponses = [
-        "Based on your sleep data from last night, your recovery score is high. You're in a good state for a moderate to high intensity workout today.",
-        "I noticed your deep sleep was lower than usual. Consider going to bed 30 minutes earlier tonight to improve recovery.",
-        "Your training load has been increasing steadily. Great job maintaining consistency! I recommend a recovery day tomorrow to prevent overtraining.",
-        "Your heart rate variability (HRV) is trending upward, which indicates good recovery. Your body is adapting well to the recent training stimulus.",
-        "Looking at the correlation between your sleep quality and training performance, I'd recommend prioritizing sleep hygiene to improve your power output during workouts.",
-      ];
+    try {
+      // Get response from OpenAI
+      const response = await generateCoachResponse(inputValue);
       
-      const randomResponse = botResponses[Math.floor(Math.random() * botResponses.length)];
+      if (response) {
+        const botMessage: Message = {
+          id: Date.now(),
+          type: "bot",
+          content: response,
+          timestamp: new Date().toISOString(),
+        };
+        
+        setMessages((prev) => [...prev, botMessage]);
+      } else {
+        throw new Error("Failed to generate response");
+      }
+    } catch (error) {
+      console.error('Error generating AI response:', error);
       
-      const botMessage = {
+      // Add error message
+      const errorMessage: Message = {
         id: Date.now(),
         type: "bot",
-        content: randomResponse,
+        content: "I'm sorry, I encountered an error processing your request. Please try again later.",
         timestamp: new Date().toISOString(),
       };
       
-      setMessages((prev) => [...prev, botMessage]);
+      setMessages((prev) => [...prev, errorMessage]);
+      
+      toast({
+        title: "Error",
+        description: "Failed to generate AI response. Please check your OpenAI API key.",
+        variant: "destructive",
+      });
+    } finally {
       setIsLoading(false);
-    }, 1500);
+    }
   };
 
   const formatTime = (timestamp: string) => {
@@ -89,6 +138,21 @@ const AICoach: React.FC = () => {
           </div>
         </section>
 
+        {!openAIConfigured && (
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-4 flex items-center gap-3">
+            <AlertTriangle className="h-5 w-5 text-amber-500" />
+            <div className="flex-1">
+              <p className="text-sm text-amber-800 dark:text-amber-300">
+                OpenAI API key not configured. Please add your API key in{" "}
+                <Link to="/settings" className="font-medium underline">
+                  Settings
+                </Link>{" "}
+                to use the AI Coach.
+              </p>
+            </div>
+          </div>
+        )}
+
         <div className="flex-1 flex flex-col bg-card rounded-xl border shadow-sm overflow-hidden">
           <div className="flex-1 overflow-y-auto p-4 space-y-4">
             <AnimatePresence initial={false}>
@@ -110,7 +174,7 @@ const AICoach: React.FC = () => {
                         : "bg-muted"
                     }`}
                   >
-                    <div className="text-sm">{message.content}</div>
+                    <div className="text-sm whitespace-pre-wrap">{message.content}</div>
                     <div
                       className={`text-xs mt-1 ${
                         message.type === "user"
@@ -139,6 +203,7 @@ const AICoach: React.FC = () => {
                   </div>
                 </motion.div>
               )}
+              <div ref={messagesEndRef} />
             </AnimatePresence>
           </div>
           
@@ -168,7 +233,11 @@ const AICoach: React.FC = () => {
                 className="flex-1"
                 disabled={isLoading}
               />
-              <Button type="submit" disabled={!inputValue.trim() || isLoading}>
+              <Button 
+                type="submit" 
+                disabled={!inputValue.trim() || isLoading || !openAIConfigured}
+                title={!openAIConfigured ? "OpenAI API key required" : ""}
+              >
                 <Send className="w-4 h-4" />
                 <span className="sr-only">Send</span>
               </Button>

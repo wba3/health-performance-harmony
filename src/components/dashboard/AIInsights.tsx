@@ -1,7 +1,7 @@
 
 import React, { useEffect, useState } from "react";
 import DashboardCard from "./DashboardCard";
-import { Bot, ArrowRight, BrainCircuit, Loader2 } from "lucide-react";
+import { Bot, ArrowRight, BrainCircuit, Loader2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { motion } from "framer-motion";
@@ -124,6 +124,24 @@ const AIInsights: React.FC<AIInsightsProps> = ({ isLoading: initialLoading = fal
     }
   };
 
+  const renderConnectionWarning = () => {
+    if (!openAIConfigured) {
+      return (
+        <div className="flex items-center gap-2 text-amber-600 dark:text-amber-400 text-sm mb-4 bg-amber-50 dark:bg-amber-950/30 p-3 rounded-md border border-amber-200 dark:border-amber-800">
+          <AlertTriangle className="h-4 w-4 flex-shrink-0" />
+          <p>
+            OpenAI API key not configured. Visit{" "}
+            <Link to="/settings" className="underline font-medium">
+              Settings
+            </Link>{" "}
+            to add your key.
+          </p>
+        </div>
+      );
+    }
+    return null;
+  };
+
   return (
     <DashboardCard
       title="AI Coach Insights"
@@ -147,6 +165,8 @@ const AIInsights: React.FC<AIInsightsProps> = ({ isLoading: initialLoading = fal
           </div>
         ) : !isLoading ? (
           <>
+            {renderConnectionWarning()}
+            
             <div className="space-y-4">
               {displayInsights.map((insight, index) => (
                 <motion.div
@@ -165,7 +185,8 @@ const AIInsights: React.FC<AIInsightsProps> = ({ isLoading: initialLoading = fal
               variant="outline" 
               className="w-full flex items-center justify-center gap-2"
               onClick={handleGenerateInsights}
-              disabled={isGenerating}
+              disabled={isGenerating || !openAIConfigured}
+              title={!openAIConfigured ? "OpenAI API key required" : ""}
             >
               {isGenerating ? (
                 <>
