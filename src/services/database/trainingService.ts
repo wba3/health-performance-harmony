@@ -1,148 +1,115 @@
+
 import { supabase } from "@/integrations/supabase/client";
+import { SupabaseQueryResult } from "@/integrations/supabase/types";
 
-// Define the WorkoutData interface - correctly typed for inserts
-export interface WorkoutData {
-  external_id?: string;
-  date: string;
-  source: string;
-  activity_type: string;
-  duration: number;
-  distance?: number;
-  avg_heart_rate?: number;
-  max_heart_rate?: number;
-  avg_power?: number;
-  max_power?: number;
-  calories?: number;
-  perceived_exertion?: number;
-  additional_metrics?: Record<string, any>;
-}
-
-// Define the TrainingData interface - correctly typed for database rows
+// Define the TrainingData and WorkoutData types
 export interface TrainingData {
   id: string;
   date: string;
-  source: string;
   activity_type: string;
-  duration: number;
-  distance?: number;
-  avg_heart_rate?: number;
-  max_heart_rate?: number;
-  avg_power?: number;
-  max_power?: number;
-  calories?: number;
-  perceived_exertion?: number;
-  external_id?: string;
-  additional_metrics?: Record<string, any>;
-  created_at?: string;
-  updated_at?: string;
+  duration: number | null;
+  distance: number | null;
+  calories: number | null;
+  avg_heart_rate: number | null;
+  max_heart_rate: number | null;
+  avg_power: number | null;  // Added to fix TS errors
+  max_power: number | null;  // Added to fix TS errors
+  created_at: string;
+  updated_at: string;
+  source?: string;
 }
 
-// Define simplified types for queries
-type WorkoutExistenceCheck = { id: string };
-
-// Define a simplified response type to avoid deep instantiation issues
-interface SupabaseQueryResult<T> {
-  data: T | null;
-  error: any;
+export interface WorkoutData {
+  date: string;
+  activity_type: string;
+  duration?: number | null;
+  distance?: number | null;
+  calories?: number | null;
+  avg_heart_rate?: number | null;
+  max_heart_rate?: number | null;
+  avg_power?: number | null;
+  max_power?: number | null;
+  source?: string;
 }
 
-// Define the formatters directly in this file
-const formatWorkoutData = (workoutData: WorkoutData): Record<string, any> => {
+// Helper function to format workout data
+export const formatWorkoutData = (data: Record<string, any>): WorkoutData => {
+  // Ensure required fields
+  if (!data.date || !data.activity_type) {
+    throw new Error("Workout data must include date and activity_type");
+  }
+
   return {
-    ...workoutData,
-    additional_metrics: workoutData.additional_metrics || {},
+    date: data.date,
+    activity_type: data.activity_type,
+    duration: data.duration || null,
+    distance: data.distance || null,
+    calories: data.calories || null,
+    avg_heart_rate: data.avg_heart_rate || null,
+    max_heart_rate: data.max_heart_rate || null,
+    avg_power: data.avg_power || null,
+    max_power: data.max_power || null,
+    source: data.source || 'manual'
   };
 };
 
-const defineTrainingData = (data: any): TrainingData => {
+// Helper function to define training data properties
+export const defineTrainingData = (data: WorkoutData): Omit<TrainingData, 'id' | 'created_at' | 'updated_at'> => {
   return {
-    id: data.id,
     date: data.date,
-    source: data.source || 'manual',
     activity_type: data.activity_type,
-    duration: data.duration,
-    distance: data.distance,
-    avg_heart_rate: data.avg_heart_rate,
-    max_heart_rate: data.max_heart_rate,
-    avg_power: data.avg_power,
-    max_power: data.max_power,
-    calories: data.calories,
-    perceived_exertion: data.perceived_exertion,
-    external_id: data.external_id,
-    additional_metrics: data.additional_metrics || {},
-    created_at: data.created_at,
-    updated_at: data.updated_at,
+    duration: data.duration || null,
+    distance: data.distance || null,
+    calories: data.calories || null,
+    avg_heart_rate: data.avg_heart_rate || null,
+    max_heart_rate: data.max_heart_rate || null,
+    avg_power: data.avg_power || null,
+    max_power: data.max_power || null,
+    source: data.source || 'manual'
   };
 };
 
 /**
- * Saves a workout to the database
+ * Insert training data into the database
  */
-export const saveWorkout = async (workoutData: WorkoutData): Promise<TrainingData | null> => {
+export const insertTrainingData = async (
+  workoutData: WorkoutData
+): Promise<SupabaseQueryResult<TrainingData>> => {
   try {
-    // Check if workout already exists to prevent duplicates
-    if (workoutData.external_id && await workoutExistsByExternalId(workoutData.external_id)) {
-      console.log(`Workout with external_id ${workoutData.external_id} already exists.`);
-      return null;
-    }
+    // Validate and format workout data
+    const formattedData = formatWorkoutData(workoutData);
+    const trainingData = defineTrainingData(formattedData);
 
-    // Insert the workout into the database
+    // Insert the data into the database
     const { data, error } = await supabase
       .from('training_data')
-      .insert(formatWorkoutData(workoutData))
-      .select()
+      .insert(trainingData as any)
+      .select('*')
       .single();
 
     if (error) {
-      console.error('Error saving workout:', error);
-      return null;
-    }
-
-    return defineTrainingData(data);
-  } catch (error) {
-    console.error('Error in saveWorkout:', error);
-    return null;
-  }
-};
-
-/**
- * Insert training data (alias for saveWorkout for compatibility)
- */
-export const insertTrainingData = async (data: Partial<TrainingData>): Promise<boolean> => {
-  try {
-    // Ensure required fields are present
-    if (!data.activity_type || !data.date) {
-      console.error('Missing required fields for training data insertion');
-      return false;
-    }
-
-    const { error } = await supabase
-      .from('training_data')
-      .insert(data as any);
-
-    if (error) {
       console.error('Error inserting training data:', error);
-      return false;
+      return { data: null, error };
     }
 
-    return true;
-  } catch (error) {
+    return { data, error: null };
+  } catch (error: any) {
     console.error('Error in insertTrainingData:', error);
-    return false;
+    return { data: null, error };
   }
 };
 
 /**
- * Retrieves training data for the specified number of days
+ * Get training data from the database
  */
-export const getTrainingData = async (days: number = 30): Promise<TrainingData[]> => {
+export const getTrainingData = async (
+  days: number = 30
+): Promise<SupabaseQueryResult<TrainingData[]>> => {
   try {
-    // Calculate the date for "days" ago
     const date = new Date();
     date.setDate(date.getDate() - days);
     const fromDate = date.toISOString().split('T')[0];
 
-    // Query the database for training data
     const { data, error } = await supabase
       .from('training_data')
       .select('*')
@@ -151,61 +118,126 @@ export const getTrainingData = async (days: number = 30): Promise<TrainingData[]
 
     if (error) {
       console.error('Error fetching training data:', error);
-      return [];
+      return { data: null, error };
     }
 
-    // Use type assertion to avoid deep instantiation issues
-    return (data || []).map(item => defineTrainingData(item));
-  } catch (error) {
+    return { data: data as TrainingData[], error: null };
+  } catch (error: any) {
     console.error('Error in getTrainingData:', error);
-    return [];
+    return { data: null, error };
   }
 };
 
 /**
- * Checks if a workout with the specified external ID already exists
+ * Update training data in the database
  */
-export const workoutExistsByExternalId = async (externalId: string): Promise<boolean> => {
+export const updateTrainingData = async (
+  id: string,
+  workoutData: Partial<WorkoutData>
+): Promise<SupabaseQueryResult<TrainingData>> => {
   try {
     const { data, error } = await supabase
       .from('training_data')
-      .select('id')
-      .eq('external_id', externalId)
-      .limit(1);
+      .update(workoutData)
+      .eq('id', id)
+      .select('*')
+      .single();
 
     if (error) {
-      console.error('Error checking workout existence:', error);
-      return false;
+      console.error('Error updating training data:', error);
+      return { data: null, error };
     }
 
-    return data !== null && data.length > 0;
-  } catch (error) {
-    console.error('Error in workoutExistsByExternalId:', error);
-    return false;
+    return { data, error: null };
+  } catch (error: any) {
+    console.error('Error in updateTrainingData:', error);
+    return { data: null, error };
   }
 };
 
 /**
- * Gets training data from a specific source
+ * Delete training data from the database
  */
-export const getTrainingDataBySource = async (source: string, limit: number = 10): Promise<TrainingData[]> => {
+export const deleteTrainingData = async (
+  id: string
+): Promise<{ success: boolean; error: any }> => {
   try {
+    const { error } = await supabase
+      .from('training_data')
+      .delete()
+      .eq('id', id);
+
+    if (error) {
+      console.error('Error deleting training data:', error);
+      return { success: false, error };
+    }
+
+    return { success: true, error: null };
+  } catch (error: any) {
+    console.error('Error in deleteTrainingData:', error);
+    return { success: false, error };
+  }
+};
+
+/**
+ * Get training data grouped by activity type
+ */
+export const getTrainingByActivity = async (
+  days: number = 30
+): Promise<SupabaseQueryResult<{
+  activity_type: string;
+  count: number;
+  total_duration: number;
+  total_distance: number;
+  total_calories: number;
+}[]>> => {
+  try {
+    const date = new Date();
+    date.setDate(date.getDate() - days);
+    const fromDate = date.toISOString().split('T')[0];
+
     const { data, error } = await supabase
       .from('training_data')
       .select('*')
-      .eq('source', source)
-      .order('date', { ascending: false })
-      .limit(limit);
+      .gte('date', fromDate)
+      .order('date', { ascending: false });
 
     if (error) {
-      console.error(`Error fetching ${source} training data:`, error);
-      return [];
+      console.error('Error fetching training data:', error);
+      return { data: null, error };
     }
 
-    // Use type assertion to avoid deep instantiation issues
-    return (data || []).map(item => defineTrainingData(item));
-  } catch (error) {
-    console.error(`Error in getTrainingDataBySource (${source}):`, error);
-    return [];
+    // Group data by activity_type
+    const groupedData = (data as TrainingData[]).reduce((acc, item) => {
+      const existingGroup = acc.find(g => g.activity_type === item.activity_type);
+      
+      if (existingGroup) {
+        existingGroup.count += 1;
+        existingGroup.total_duration += item.duration || 0;
+        existingGroup.total_distance += item.distance || 0;
+        existingGroup.total_calories += item.calories || 0;
+      } else {
+        acc.push({
+          activity_type: item.activity_type,
+          count: 1,
+          total_duration: item.duration || 0,
+          total_distance: item.distance || 0,
+          total_calories: item.calories || 0
+        });
+      }
+      
+      return acc;
+    }, [] as {
+      activity_type: string;
+      count: number;
+      total_duration: number;
+      total_distance: number;
+      total_calories: number;
+    }[]);
+
+    return { data: groupedData, error: null };
+  } catch (error: any) {
+    console.error('Error in getTrainingByActivity:', error);
+    return { data: null, error };
   }
 };

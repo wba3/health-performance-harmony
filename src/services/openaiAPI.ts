@@ -23,14 +23,17 @@ interface AIInsight {
   rating: number | null;
 }
 
-// Initialize OpenAI client
-const openai = new OpenAI({
-  apiKey: localStorage.getItem('openai_api_key') || undefined,
-});
-
 // Helper function to check if OpenAI API key is configured
 const isOpenAIConfigured = (): boolean => {
   return !!localStorage.getItem('openai_api_key');
+};
+
+// Initialize OpenAI client - using localStorage for API key
+const getOpenAIClient = () => {
+  return new OpenAI({
+    apiKey: localStorage.getItem('openai_api_key') || undefined,
+    dangerouslyAllowBrowser: true // Required for browser usage
+  });
 };
 
 const dailyPrompt = `
@@ -52,6 +55,7 @@ const generateDailyInsight = async (healthData: string): Promise<string | null> 
       return null;
     }
 
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       messages: [{ role: "system", content: dailyPrompt + healthData }],
       model: localStorage.getItem('openai_model') || "gpt-3.5-turbo",
@@ -72,6 +76,7 @@ const generateCoachResponse = async (question: string): Promise<string | null> =
       return null;
     }
 
+    const openai = getOpenAIClient();
     const completion = await openai.chat.completions.create({
       messages: [{ role: "system", content: coachPrompt + question }],
       model: localStorage.getItem('openai_model') || "gpt-3.5-turbo",
@@ -258,12 +263,18 @@ const generateInsightsFromData = async () => {
   }
 };
 
+// Get AI insights from database interface
+const getAIInsights = async (days: number = 7): Promise<AIInsight[]> => {
+  return getInsights(days);
+};
+
 export { 
   generateDailyInsight,
   generateCoachResponse,
   generateInsights,
   saveInsight,
   getInsights,
+  getAIInsights,
   markInsightAsRead,
   rateInsight,
   generateInsightsFromData,

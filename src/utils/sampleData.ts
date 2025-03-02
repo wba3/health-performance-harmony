@@ -1,9 +1,9 @@
-import { insertTrainingData, TrainingData } from "@/services/database/trainingService";
+import { insertTrainingData, WorkoutData } from '@/services/database/trainingService';
 
 // Function to generate sample training data
 export const generateSampleTrainingData = () => {
   // Generate realistic workout data
-  const workoutData = {
+  const workoutData: WorkoutData = {
     date: new Date().toISOString().split('T')[0],
     activity_type: 'cycling',
     duration: 3600,
