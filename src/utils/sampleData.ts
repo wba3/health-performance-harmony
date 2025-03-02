@@ -1,3 +1,4 @@
+
 import { 
   insertSleepData, 
   insertTrainingData, 
@@ -166,41 +167,47 @@ export const insertSampleTrainingData = async () => {
 // Function to insert sample AI insights for development
 export const insertSampleAIInsights = async () => {
   try {
+    const currentDate = new Date().toISOString();
     const sampleInsights = [
       {
         date: new Date().toISOString().split('T')[0], // Today
         insight_type: "performance",
         content: "Your sleep score has been consistently high this week, which correlates with improved performance during your morning workouts.",
         is_read: false,
-        rating: null
+        rating: null,
+        created_at: currentDate
       },
       {
         date: new Date().toISOString().split('T')[0], // Today
         insight_type: "recommendation",
         content: "Consider increasing your deep sleep by going to bed 30 minutes earlier on days before intense training sessions.",
         is_read: false,
-        rating: null
+        rating: null,
+        created_at: currentDate
       },
       {
         date: new Date().toISOString().split('T')[0], // Today
         insight_type: "alert",
         content: "Your heart rate variability (HRV) dropped significantly after yesterday's high-intensity workout. Consider a recovery day.",
         is_read: false,
-        rating: null
+        rating: null,
+        created_at: currentDate
       },
       {
         date: new Date(Date.now() - 86400000).toISOString().split('T')[0], // Yesterday
         insight_type: "nutrition",
         content: "Based on your training intensity, aim for 2g of protein per kg of body weight today to support muscle recovery.",
         is_read: true,
-        rating: 5
+        rating: 5,
+        created_at: new Date(Date.now() - 86400000).toISOString()
       },
       {
         date: new Date(Date.now() - 2 * 86400000).toISOString().split('T')[0], // 2 days ago
         insight_type: "hydration",
         content: "Your workout intensity suggests you should increase fluid intake. Aim for 3-4 liters of water today.",
         is_read: true,
-        rating: 4
+        rating: 4,
+        created_at: new Date(Date.now() - 2 * 86400000).toISOString()
       }
     ];
 
