@@ -15,7 +15,8 @@ import {
   Zap,
   AlertCircle,
   FileWarning,
-  RefreshCcw
+  RefreshCcw,
+  Heart  // Add the missing Heart icon import
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import DashboardCard from "@/components/dashboard/DashboardCard";
