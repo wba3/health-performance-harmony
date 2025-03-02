@@ -13,7 +13,7 @@ interface AIInsightsProps {
 
 const AIInsights: React.FC<AIInsightsProps> = ({ isLoading: initialLoading = false }) => {
   const [insights, setInsights] = useState<AIInsight[]>([]);
-  const [isLoading, setIsLoading] = useState(initialLoading || true);
+  const [isLoading, setIsLoading] = useState<boolean>(initialLoading || true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

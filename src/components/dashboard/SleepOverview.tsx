@@ -14,7 +14,7 @@ interface SleepOverviewProps {
 
 const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading = false }) => {
   const [sleepData, setSleepData] = useState<SleepData | null>(null);
-  const [isLoading, setIsLoading] = useState(initialLoading || true);
+  const [isLoading, setIsLoading] = useState<boolean>(initialLoading || true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {

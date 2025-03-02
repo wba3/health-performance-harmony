@@ -14,7 +14,7 @@ interface TrainingOverviewProps {
 
 const TrainingOverview: React.FC<TrainingOverviewProps> = ({ isLoading: initialLoading = false }) => {
   const [trainingData, setTrainingData] = useState<TrainingData | null>(null);
-  const [isLoading, setIsLoading] = useState(initialLoading || true);
+  const [isLoading, setIsLoading] = useState<boolean>(initialLoading || true);
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
