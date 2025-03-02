@@ -41,34 +41,22 @@ export interface OuraCredentials {
   expiresAt: number;
 }
 
-// Store Oura credentials in the database
+// Store Oura credentials in localStorage (temporary solution)
+// In a production app, these should be stored securely on the server
 const storeOuraCredentials = async (credentials: OuraCredentials): Promise<void> => {
-  await supabase
-    .from('oura_credentials')
-    .upsert({
-      id: 1, // Assuming a single user for simplicity
-      access_token: credentials.accessToken,
-      refresh_token: credentials.refreshToken,
-      expires_at: credentials.expiresAt,
-    });
+  localStorage.setItem('ouraCredentials', JSON.stringify(credentials));
 };
 
 const getOuraCredentials = async (): Promise<OuraCredentials | null> => {
-  const { data, error } = await supabase
-    .from('oura_credentials')
-    .select('*')
-    .eq('id', 1)
-    .single();
-
-  if (error || !data) {
+  const credentialsStr = localStorage.getItem('ouraCredentials');
+  if (!credentialsStr) return null;
+  
+  try {
+    return JSON.parse(credentialsStr) as OuraCredentials;
+  } catch (error) {
+    console.error('Error parsing Oura credentials:', error);
     return null;
   }
-
-  return {
-    accessToken: data.access_token,
-    refreshToken: data.refresh_token,
-    expiresAt: data.expires_at,
-  };
 };
 
 // Initialize OAuth flow
@@ -307,8 +295,5 @@ export const isOuraConnected = async (): Promise<boolean> => {
 
 // Disconnect from Oura
 export const disconnectOura = async (): Promise<void> => {
-  await supabase
-    .from('oura_credentials')
-    .delete()
-    .eq('id', 1);
+  localStorage.removeItem('ouraCredentials');
 };

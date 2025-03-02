@@ -1,5 +1,4 @@
-
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Bike, Info, CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -18,13 +17,27 @@ import {
 const PelotonIntegration: React.FC = () => {
   const { toast } = useToast();
   
-  // Peloton connection state
-  const [connected, setConnected] = useState<boolean>(isPelotonConnected());
+  // Peloton connection state - Fix: Initialize with false instead of promise
+  const [connected, setConnected] = useState<boolean>(false);
   const [username, setUsername] = useState<string>(localStorage.getItem('peloton_username') || '');
   const [password, setPassword] = useState<string>('');
   const [autoImport, setAutoImport] = useState<boolean>(false);
   const [connecting, setConnecting] = useState<boolean>(false);
   const [importingData, setImportingData] = useState<boolean>(false);
+
+  // Check connection status on component mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const isConnected = await isPelotonConnected();
+        setConnected(isConnected);
+      } catch (err) {
+        console.error("Error checking Peloton connection:", err);
+      }
+    };
+    
+    checkConnection();
+  }, []);
 
   // Connect to Peloton
   const handleConnect = async () => {

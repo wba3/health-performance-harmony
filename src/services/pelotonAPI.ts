@@ -1,22 +1,19 @@
+
 import { supabase } from "@/integrations/supabase/client";
 
 // Base API URL
 const PELOTON_API_URL = 'https://api.onepeloton.com';
 
-// Store auth tokens in the database
-const PELOTON_CREDENTIALS_TABLE = 'peloton_credentials';
-
+// Store auth tokens in localStorage (temporary solution)
+// In a production app, these should be stored securely on the server
 /**
  * Check if user is connected to Peloton
  */
 export const isPelotonConnected = async (): Promise<boolean> => {
-  const { data, error } = await supabase
-    .from(PELOTON_CREDENTIALS_TABLE)
-    .select('session_id, user_id')
-    .eq('id', 1)
-    .single();
+  const sessionId = localStorage.getItem('peloton_session_id');
+  const userId = localStorage.getItem('peloton_user_id');
 
-  return !!data && !!data.session_id && !!data.user_id;
+  return !!sessionId && !!userId;
 };
 
 /**
@@ -48,15 +45,10 @@ export const connectToPeloton = async (
 
     const data = await response.json();
     
-    // Store session token and user ID in the database
-    await supabase
-      .from(PELOTON_CREDENTIALS_TABLE)
-      .upsert({
-        id: 1, // Assuming a single user for simplicity
-        session_id: data.session_id,
-        user_id: data.user_id,
-        username: username,
-      });
+    // Store session token and user ID in localStorage
+    localStorage.setItem('peloton_session_id', data.session_id);
+    localStorage.setItem('peloton_user_id', data.user_id);
+    localStorage.setItem('peloton_username', username);
     
     console.log('Connected to Peloton successfully');
     return true;
@@ -70,25 +62,20 @@ export const connectToPeloton = async (
  * Disconnect from Peloton
  */
 export const disconnectPeloton = async (): Promise<void> => {
-  await supabase
-    .from(PELOTON_CREDENTIALS_TABLE)
-    .delete()
-    .eq('id', 1);
+  localStorage.removeItem('peloton_session_id');
+  localStorage.removeItem('peloton_user_id');
+  localStorage.removeItem('peloton_username');
 };
 
 /**
  * Get Peloton auth headers
  */
 const getPelotonHeaders = async (): Promise<HeadersInit> => {
-  const { data } = await supabase
-    .from(PELOTON_CREDENTIALS_TABLE)
-    .select('session_id')
-    .eq('id', 1)
-    .single();
+  const sessionId = localStorage.getItem('peloton_session_id');
   
   return {
     'Content-Type': 'application/json',
-    'Cookie': `peloton_session_id=${data.session_id}`,
+    'Cookie': `peloton_session_id=${sessionId}`,
   };
 };
 
@@ -101,13 +88,9 @@ export const testPelotonConnection = async (): Promise<boolean> => {
   }
   
   try {
-    const { data } = await supabase
-      .from(PELOTON_CREDENTIALS_TABLE)
-      .select('user_id')
-      .eq('id', 1)
-      .single();
+    const userId = localStorage.getItem('peloton_user_id');
     
-    const response = await fetch(`${PELOTON_API_URL}/api/user/${data.user_id}`, {
+    const response = await fetch(`${PELOTON_API_URL}/api/user/${userId}`, {
       headers: await getPelotonHeaders(),
     });
     
@@ -129,14 +112,10 @@ export const getPelotonWorkouts = async (
   }
   
   try {
-    const { data } = await supabase
-      .from(PELOTON_CREDENTIALS_TABLE)
-      .select('user_id')
-      .eq('id', 1)
-      .single();
+    const userId = localStorage.getItem('peloton_user_id');
     
     const response = await fetch(
-      `${PELOTON_API_URL}/api/user/${data.user_id}/workouts?limit=${limit}&page=0`, 
+      `${PELOTON_API_URL}/api/user/${userId}/workouts?limit=${limit}&page=0`, 
       {
         headers: await getPelotonHeaders(),
       }
@@ -226,18 +205,26 @@ export const importPelotonWorkouts = async (
           external_id: workout.id
         };
         
-        // Import to database using our database service
-        const { data, error } = await fetch('/api/import-peloton-workout', {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ workout: trainingData }),
-        }).then(res => res.json());
-        
-        if (error) {
-          console.error('Error importing workout:', error);
-          continue;
+        // Check if workout already exists
+        const { data: existingWorkout } = await supabase
+          .from('training_data')
+          .select('id')
+          .eq('date', trainingData.date)
+          .eq('source', 'peloton')
+          .eq('activity_type', trainingData.activity_type)
+          .maybeSingle();
+          
+        if (existingWorkout) {
+          // Update existing workout
+          await supabase
+            .from('training_data')
+            .update(trainingData)
+            .eq('id', existingWorkout.id);
+        } else {
+          // Insert new workout
+          await supabase
+            .from('training_data')
+            .insert(trainingData);
         }
         
         importCount++;
@@ -263,14 +250,10 @@ export const getPelotonProfile = async (): Promise<any> => {
   }
   
   try {
-    const { data } = await supabase
-      .from(PELOTON_CREDENTIALS_TABLE)
-      .select('user_id')
-      .eq('id', 1)
-      .single();
+    const userId = localStorage.getItem('peloton_user_id');
     
     const response = await fetch(
-      `${PELOTON_API_URL}/api/user/${data.user_id}`,
+      `${PELOTON_API_URL}/api/user/${userId}`,
       {
         headers: await getPelotonHeaders(),
       }

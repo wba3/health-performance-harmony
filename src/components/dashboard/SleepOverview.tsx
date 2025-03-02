@@ -1,3 +1,4 @@
+
 import React, { useEffect, useState } from "react";
 import DashboardCard from "./DashboardCard";
 import { BedDouble, ArrowRight, Moon, Activity, Heart, AlertCircle, Calendar } from "lucide-react";
@@ -22,7 +23,17 @@ const SleepOverview: React.FC<SleepOverviewProps> = ({ isLoading: initialLoading
   const [ouraConnected, setOuraConnected] = useState<boolean>(false);
 
   useEffect(() => {
-    setOuraConnected(isOuraConnected());
+    // Fix: Handle the Promise properly
+    const checkOuraConnection = async () => {
+      try {
+        const connected = await isOuraConnected();
+        setOuraConnected(connected);
+      } catch (err) {
+        console.error("Error checking Oura connection:", err);
+      }
+    };
+    
+    checkOuraConnection();
     
     const fetchSleepData = async () => {
       try {

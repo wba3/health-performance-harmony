@@ -1,4 +1,5 @@
-import React, { useState } from "react";
+
+import React, { useState, useEffect } from "react";
 import { Moon, CheckCircle, XCircle, Loader2, ExternalLink } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
@@ -28,12 +29,26 @@ const OuraIntegration: React.FC<OuraIntegrationProps> = ({
   const { toast } = useToast();
   const { isAuthenticated } = useAuth();
   
-  // Oura connection state
-  const [connected, setConnected] = useState<boolean>(isOuraConnected());
+  // Oura connection state - Fix: Initialize with false instead of promise
+  const [connected, setConnected] = useState<boolean>(false);
   const [clientId, setClientId] = useState<string>(localStorage.getItem('ouraClientId') || '');
   const [clientSecret, setClientSecret] = useState<string>(localStorage.getItem('ouraClientSecret') || '');
   const [autoSync, setAutoSync] = useState<boolean>(false);
   const [importingData, setImportingData] = useState<boolean>(false);
+
+  // Check connection status on component mount
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        const isConnected = await isOuraConnected();
+        setConnected(isConnected);
+      } catch (err) {
+        console.error("Error checking Oura connection:", err);
+      }
+    };
+    
+    checkConnection();
+  }, []);
 
   if (!isAuthenticated) {
     return <Navigate to="/login" />;
