@@ -1,3 +1,4 @@
+
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/components/ui/use-toast';
 
@@ -42,6 +43,7 @@ export const initiateStravaAuth = (clientId: string) => {
     
     const authUrl = `${STRAVA_AUTH_URL}?${params.toString()}`;
     console.log('Redirecting to Strava auth URL:', authUrl);
+    console.log('Using redirect URI:', REDIRECT_URI);
     
     // Redirect to Strava authorization page
     window.location.href = authUrl;
@@ -95,6 +97,7 @@ export const handleStravaCallback = async (
     }
     
     console.log('Exchanging code for tokens with client ID:', clientId);
+    console.log('Using redirect URI for token exchange:', REDIRECT_URI);
     
     // Exchange authorization code for tokens
     console.log('POST request to:', STRAVA_TOKEN_URL);
@@ -108,14 +111,26 @@ export const handleStravaCallback = async (
         client_secret: clientSecret,
         code: code,
         grant_type: 'authorization_code',
+        redirect_uri: REDIRECT_URI
       }),
     });
     
     console.log('Token exchange response status:', tokenResponse.status);
     
     if (!tokenResponse.ok) {
-      const errorText = await tokenResponse.text();
-      console.error('Strava token exchange failed:', tokenResponse.statusText, errorText);
+      const errorData = await tokenResponse.json().catch(() => ({}));
+      console.error('Strava token exchange failed:', tokenResponse.statusText, errorData);
+      
+      // Handle redirect URI error specifically
+      if (errorData.errors && errorData.errors.some((e: any) => e.field === 'redirect_uri' && e.code === 'invalid')) {
+        toast({
+          title: "Redirect URI Error",
+          description: "The redirect URI isn't authorized in your Strava API settings. Please add this exact URL to your Strava API application's authorized redirect URIs: " + REDIRECT_URI,
+          variant: "destructive",
+        });
+        console.error('IMPORTANT: Add this exact redirect URI to your Strava API application:', REDIRECT_URI);
+        return false;
+      }
       
       // Show specific error message based on response
       if (tokenResponse.status === 400) {
