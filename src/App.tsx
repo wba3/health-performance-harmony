@@ -21,18 +21,35 @@ import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 // Protected route component to handle authentication
 const ProtectedRoute = ({ children }: { children: React.ReactNode }) => {
-  const { isLoggedIn } = useAuth();
+  const { isLoggedIn, loading } = useAuth();
   const location = useLocation();
 
+  // Don't redirect while authentication is being checked
+  if (loading) {
+    return <div className="flex h-screen items-center justify-center">Loading...</div>;
+  }
+
   if (!isLoggedIn) {
-    // Redirect to the home page but preserve the intended destination
-    return <Navigate to="/" state={{ from: location }} replace />;
+    // Only redirect if we're not already on the home page
+    if (location.pathname !== '/') {
+      console.log("User not logged in, redirecting to home");
+      // Redirect to the home page but preserve the intended destination
+      return <Navigate to="/" state={{ from: location }} replace />;
+    }
   }
 
   return <>{children}</>;
 };
 
 function App() {
+  const { isLoggedIn } = useAuth();
+  const location = useLocation();
+
+  // If user is logged in and they're on the index page, redirect to dashboard
+  if (isLoggedIn && location.pathname === '/') {
+    return <Navigate to="/dashboard" replace />;
+  }
+
   return (
     <div className="app">
       <Navbar />

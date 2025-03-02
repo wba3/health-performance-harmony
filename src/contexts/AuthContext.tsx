@@ -33,8 +33,13 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
     // Check for active session on mount
     const checkSession = async () => {
       try {
-        const { data } = await supabase.auth.getSession();
-        if (data && data.session) {
+        console.log("Checking for active session...");
+        const { data, error } = await supabase.auth.getSession();
+        
+        if (error) {
+          console.error('Error checking auth session:', error);
+          setUser(null);
+        } else if (data && data.session) {
           console.log("Active session found:", data.session.user.email);
           setUser(data.session.user);
         } else {
@@ -42,7 +47,7 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
           setUser(null);
         }
       } catch (error) {
-        console.error('Error checking auth session:', error);
+        console.error('Unexpected error checking auth session:', error);
         setUser(null);
       } finally {
         setLoading(false);
@@ -73,7 +78,9 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
 
   const login = async (email: string, password: string) => {
     try {
+      setLoading(true);
       console.log("Attempting login for:", email);
+      
       const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -93,19 +100,30 @@ export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
       console.error("Unexpected login error:", error.message);
       toast.error("An unexpected error occurred during login");
       return { success: false, error: error.message };
+    } finally {
+      setLoading(false);
     }
   };
 
   const logout = async () => {
     try {
+      setLoading(true);
       console.log("Attempting logout");
-      await supabase.auth.signOut();
-      setUser(null);
-      toast.success("You've been logged out");
-      console.log("Logout successful");
+      const { error } = await supabase.auth.signOut();
+      
+      if (error) {
+        console.error("Logout error:", error.message);
+        toast.error("Error during logout: " + error.message);
+      } else {
+        setUser(null);
+        toast.success("You've been logged out");
+        console.log("Logout successful");
+      }
     } catch (error: any) {
-      console.error("Logout error:", error.message);
+      console.error("Unexpected logout error:", error.message);
       toast.error("Error during logout");
+    } finally {
+      setLoading(false);
     }
   };
 
