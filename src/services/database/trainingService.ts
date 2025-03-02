@@ -1,15 +1,6 @@
 
 import { supabase } from "@/integrations/supabase/client";
 
-// Define simplified types to prevent deep instantiation
-type WorkoutExistenceCheck = { id: string };
-
-// Use a more specific typed response to avoid deep type instantiation
-interface SupabaseQueryResult<T> {
-  data: T | null;
-  error: any;
-}
-
 // Define the WorkoutData interface - correctly typed for inserts
 export interface WorkoutData {
   external_id?: string;
@@ -47,7 +38,16 @@ export interface TrainingData {
   updated_at?: string;
 }
 
-// Define the formatters directly in this file to avoid imports
+// Define simplified types for queries
+type WorkoutExistenceCheck = { id: string };
+
+// Define a simplified response type to avoid deep instantiation issues
+interface SupabaseQueryResult<T> {
+  data: T | null;
+  error: any;
+}
+
+// Define the formatters directly in this file
 const formatWorkoutData = (workoutData: WorkoutData): Record<string, any> => {
   return {
     ...workoutData,
@@ -78,9 +78,6 @@ const defineTrainingData = (data: any): TrainingData => {
 
 /**
  * Saves a workout to the database
- * 
- * @param workoutData - The workout data to save
- * @returns The saved workout data or null if there was an error
  */
 export const saveWorkout = async (workoutData: WorkoutData): Promise<TrainingData | null> => {
   try {
@@ -93,7 +90,7 @@ export const saveWorkout = async (workoutData: WorkoutData): Promise<TrainingDat
     // Insert the workout into the database
     const { data, error } = await supabase
       .from('training_data')
-      .insert(workoutData)
+      .insert(formatWorkoutData(workoutData))
       .select()
       .single();
 
@@ -116,9 +113,6 @@ export const insertTrainingData = saveWorkout;
 
 /**
  * Retrieves training data for the specified number of days
- * 
- * @param days - The number of days of data to retrieve
- * @returns Array of training data objects
  */
 export const getTrainingData = async (days: number = 30): Promise<TrainingData[]> => {
   try {
@@ -139,7 +133,8 @@ export const getTrainingData = async (days: number = 30): Promise<TrainingData[]
       return [];
     }
 
-    return data ? data.map(defineTrainingData) : [];
+    // Use type assertion to avoid deep instantiation issues
+    return (data || []).map(item => defineTrainingData(item));
   } catch (error) {
     console.error('Error in getTrainingData:', error);
     return [];
@@ -148,9 +143,6 @@ export const getTrainingData = async (days: number = 30): Promise<TrainingData[]
 
 /**
  * Checks if a workout with the specified external ID already exists
- * 
- * @param externalId - The external ID to check
- * @returns True if the workout exists, false otherwise
  */
 export const workoutExistsByExternalId = async (externalId: string): Promise<boolean> => {
   try {
@@ -158,7 +150,7 @@ export const workoutExistsByExternalId = async (externalId: string): Promise<boo
       .from('training_data')
       .select('id')
       .eq('external_id', externalId)
-      .limit(1) as unknown as SupabaseQueryResult<WorkoutExistenceCheck[]>;
+      .limit(1);
 
     if (error) {
       console.error('Error checking workout existence:', error);
@@ -174,10 +166,6 @@ export const workoutExistsByExternalId = async (externalId: string): Promise<boo
 
 /**
  * Gets training data from a specific source
- * 
- * @param source - The source to get data from
- * @param limit - The maximum number of results to return
- * @returns Array of training data objects
  */
 export const getTrainingDataBySource = async (source: string, limit: number = 10): Promise<TrainingData[]> => {
   try {
@@ -186,14 +174,15 @@ export const getTrainingDataBySource = async (source: string, limit: number = 10
       .select('*')
       .eq('source', source)
       .order('date', { ascending: false })
-      .limit(limit) as unknown as SupabaseQueryResult<any[]>;
+      .limit(limit);
 
     if (error) {
       console.error(`Error fetching ${source} training data:`, error);
       return [];
     }
 
-    return data ? data.map(defineTrainingData) : [];
+    // Use type assertion to avoid deep instantiation issues
+    return (data || []).map(item => defineTrainingData(item));
   } catch (error) {
     console.error(`Error in getTrainingDataBySource (${source}):`, error);
     return [];
