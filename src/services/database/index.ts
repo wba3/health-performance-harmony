@@ -1,6 +1,6 @@
 
 // Re-export functions from services
-export * from './trainingService';
+export * from './training';
 export * from './sleepService';
 export * from './insightsService';
 
