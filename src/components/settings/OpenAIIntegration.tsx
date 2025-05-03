@@ -7,6 +7,7 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
+import OpenAIApiTester from "./OpenAIApiTester";
 
 const OpenAIIntegration: React.FC = () => {
   const { toast } = useToast();
@@ -128,6 +129,20 @@ const OpenAIIntegration: React.FC = () => {
             <Label htmlFor="openai-daily-insights">Generate daily insights</Label>
           </div>
         </div>
+
+        {/* Only show API tester when connected */}
+        {connected && (
+          <>
+            <Separator className="my-6" />
+            <div className="space-y-2">
+              <h3 className="text-lg font-medium">Test API Integration</h3>
+              <p className="text-sm text-muted-foreground mb-4">
+                Validate your OpenAI integration by testing connectivity and API functionality.
+              </p>
+              <OpenAIApiTester />
+            </div>
+          </>
+        )}
       </div>
     </div>
   );

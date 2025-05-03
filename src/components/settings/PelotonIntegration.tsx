@@ -7,12 +7,13 @@ import { Separator } from "@/components/ui/separator";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
 import { useToast } from "@/components/ui/use-toast";
-import { 
-  connectToPeloton, 
-  disconnectPeloton, 
-  isPelotonConnected, 
-  testPelotonConnection, 
-  importPelotonWorkouts 
+import PelotonApiTester from "./PelotonApiTester";
+import {
+  connectToPeloton,
+  disconnectPeloton,
+  isPelotonConnected,
+  testPelotonConnection,
+  importPelotonWorkouts
 } from "@/services/pelotonAPI";
 
 const PelotonIntegration: React.FC = () => {
@@ -247,6 +248,12 @@ const PelotonIntegration: React.FC = () => {
               onCheckedChange={setAutoImport}
             />
             <Label htmlFor="peloton-auto-import">Auto-import new workouts</Label>
+          </div>
+          
+          {/* API Test Utility Section */}
+          <div className="mt-8">
+            <h3 className="text-lg font-medium mb-4">API Testing</h3>
+            <PelotonApiTester />
           </div>
         </div>
       </div>

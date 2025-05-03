@@ -3,23 +3,11 @@ import React from "react";
 import { Button } from "@/components/ui/button";
 import { useNavigate } from "react-router-dom";
 import { motion } from "framer-motion";
-import { ActivitySquare, BedDouble, Bot, ArrowRight, Database } from "lucide-react";
-import { insertAllSampleData } from "@/utils/sampleData";
+import { ActivitySquare, BedDouble, Bot, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 
 const Index = () => {
   const navigate = useNavigate();
-
-  const handleLoadSampleData = async () => {
-    try {
-      toast.loading("Loading sample data...");
-      await insertAllSampleData();
-      toast.success("Sample data loaded successfully!");
-    } catch (error) {
-      console.error("Error loading sample data:", error);
-      toast.error("Failed to load sample data. See console for details.");
-    }
-  };
 
   return (
     <div className="flex flex-col min-h-screen">
@@ -47,22 +35,13 @@ const Index = () => {
                   transition={{ duration: 0.5, delay: 0.2 }}
                   className="flex flex-col gap-2 min-[400px]:flex-row mt-4"
                 >
-                  <Button 
-                    size="lg" 
+                  <Button
+                    size="lg"
                     className="gap-2"
                     onClick={() => navigate("/dashboard")}
                   >
                     <span>Go to Dashboard</span>
                     <ArrowRight className="h-4 w-4" />
-                  </Button>
-                  <Button 
-                    variant="outline" 
-                    size="lg" 
-                    className="gap-2"
-                    onClick={handleLoadSampleData}
-                  >
-                    <Database className="h-4 w-4" />
-                    <span>Load Sample Data</span>
                   </Button>
                 </motion.div>
               </div>

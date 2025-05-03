@@ -15,6 +15,7 @@ import {
   importStravaActivities, 
   testStravaConnection 
 } from "@/services/stravaAPI";
+import StravaApiTester from "./StravaApiTester";
 
 interface StravaIntegrationProps {
   processingAuth: boolean;
@@ -322,6 +323,20 @@ const StravaIntegration: React.FC<StravaIntegrationProps> = ({
             />
             <Label htmlFor="strava-power-data">Include power data</Label>
           </div>
+          
+          {/* Only show API tester when connected */}
+          {connected && (
+            <>
+              <Separator className="my-6" />
+              <div className="space-y-2">
+                <h3 className="text-lg font-medium">Test API Integration</h3>
+                <p className="text-sm text-muted-foreground mb-4">
+                  Validate your Strava integration by testing authentication, token handling, and API connectivity.
+                </p>
+                <StravaApiTester />
+              </div>
+            </>
+          )}
         </div>
       </div>
     </div>
